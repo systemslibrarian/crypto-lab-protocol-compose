@@ -41,7 +41,6 @@ app.innerHTML = `
         id="theme-toggle"
         type="button"
         class="theme-toggle"
-        style="position: absolute; top: 0; right: 0"
         aria-label="Switch to light mode"
       >🌙</button>
       <h1>Protocol Composition Safety</h1>
@@ -60,23 +59,23 @@ app.innerHTML = `
         <article class="card">
           <h3>MAC-then-Encrypt (MtE)</h3>
           <p class="note">MAC plaintext, append tag, then encrypt both.</p>
-          <pre id="ex1-mte" class="hex"></pre>
+          <pre id="ex1-mte" class="hex" tabindex="0" aria-label="MtE output"></pre>
         </article>
         <article class="card">
           <h3>Encrypt-then-MAC (EtM)</h3>
           <p class="note">Encrypt first, MAC ciphertext, verify tag before decrypt.</p>
-          <pre id="ex1-etm" class="hex"></pre>
+          <pre id="ex1-etm" class="hex" tabindex="0" aria-label="EtM output"></pre>
         </article>
         <article class="card">
           <h3>Encrypt-and-MAC (E&M)</h3>
           <p class="note">Encrypt plaintext and MAC plaintext separately.</p>
-          <pre id="ex1-eam" class="hex"></pre>
+          <pre id="ex1-eam" class="hex" tabindex="0" aria-label="E and M output"></pre>
         </article>
       </div>
       <article class="card">
         <h3>AEAD (AES-256-GCM)</h3>
         <p class="note">Confidentiality and integrity in one primitive.</p>
-        <pre id="ex1-aead" class="hex"></pre>
+        <pre id="ex1-aead" class="hex" tabindex="0" aria-label="AEAD output"></pre>
       </article>
     </section>
 
@@ -92,9 +91,9 @@ app.innerHTML = `
       <input id="oracle-message" value="pay=bob;amt=1337" maxlength="64" />
       <button id="oracle-run" type="button" aria-describedby="oracle-output">Padding Oracle Runner</button>
       <p class="note">
-        Related lab: <a href="https://systemslibrarian.github.io/crypto-lab-padding-oracle/" target="_blank" rel="noreferrer">crypto-lab-padding-oracle</a>
+        Related lab: <a href="https://systemslibrarian.github.io/crypto-lab-padding-oracle/" target="_blank" rel="noreferrer">crypto-lab-padding-oracle<span class="sr-only"> (opens in new tab)</span></a>
       </p>
-      <pre id="oracle-output" class="hex" role="status" aria-live="polite"></pre>
+      <pre id="oracle-output" class="hex" tabindex="0" role="status" aria-live="polite"></pre>
     </section>
 
     <section class="panel" aria-labelledby="ex3-title">
@@ -111,9 +110,9 @@ app.innerHTML = `
       <h2 id="ex4-title">Exhibit 4 - TLS Evolution Walkthrough</h2>
       <p class="note">Use controls to animate record-layer composition evolution from TLS 1.0 to TLS 1.3.</p>
       <div class="btn-row">
-        <button id="tls-prev" type="button">Previous</button>
-        <button id="tls-play" type="button">TLS Evolution Walkthrough</button>
-        <button id="tls-next" type="button">Next</button>
+        <button id="tls-prev" type="button" aria-label="Previous TLS version">Previous</button>
+        <button id="tls-play" type="button" aria-pressed="false">TLS Evolution Walkthrough</button>
+        <button id="tls-next" type="button" aria-label="Next TLS version">Next</button>
       </div>
       <article id="tls-card" class="card" role="region" aria-live="polite" aria-label="Current TLS version detail"></article>
     </section>
@@ -137,7 +136,7 @@ app.innerHTML = `
         <option value="eam">E&M</option>
       </select>
       <button id="chk-run" type="button">Compute Safety Score</button>
-      <pre id="chk-output" class="hex" role="status" aria-live="polite"></pre>
+      <pre id="chk-output" class="hex" tabindex="0" role="status" aria-live="polite"></pre>
     </section>
 
     <footer class="hero" role="contentinfo">
@@ -284,9 +283,11 @@ if (tlsPlay) {
       window.clearInterval(tlsTimer);
       tlsTimer = null;
       tlsPlay.textContent = 'TLS Evolution Walkthrough';
+      tlsPlay.setAttribute('aria-pressed', 'false');
       return;
     }
     tlsPlay.textContent = 'Pause Walkthrough';
+    tlsPlay.setAttribute('aria-pressed', 'true');
     tlsTimer = window.setInterval(() => {
       tlsIndex = (tlsIndex + 1) % tlsData.length;
       renderTls();

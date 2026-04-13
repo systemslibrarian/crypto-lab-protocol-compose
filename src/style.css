@@ -5,6 +5,7 @@
   --text: #ecf2f9;
   --muted: #b7c7da;
   --line: #294666;
+  --focus: #5b9bd5;
 }
 
 :root[data-theme='light'] {
@@ -14,6 +15,7 @@
   --text: #1a2d42;
   --muted: #4c647c;
   --line: #a9bfd6;
+  --focus: #2563eb;
 }
 
 * {
@@ -101,6 +103,9 @@ body {
 }
 
 .theme-toggle {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
   width: 2.6rem;
   height: 2.6rem;
   border-radius: 50%;
@@ -164,7 +169,7 @@ input:focus-visible,
 textarea:focus-visible,
 select:focus-visible,
 a:focus-visible {
-  outline: 3px solid var(--line);
+  outline: 3px solid var(--focus);
   outline-offset: 2px;
 }
 
@@ -224,6 +229,11 @@ ul {
   font-size: 0.875rem;
 }
 
+.hex:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
 button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -275,12 +285,6 @@ button:disabled {
 
   .btn-row button {
     width: 100%;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .panel {
-    animation: none;
   }
 }
 
