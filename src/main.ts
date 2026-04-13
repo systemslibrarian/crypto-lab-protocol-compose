@@ -148,7 +148,14 @@ app.innerHTML = `
 
 wireThemeToggle();
 
-const suitePromise = createSuite();
+const suitePromise = createSuite().catch((err) => {
+  const banner = document.querySelector<HTMLElement>('.hero p');
+  if (banner) {
+    banner.textContent = 'WebCrypto is not available. This demo requires a secure context (HTTPS or localhost).';
+    banner.style.color = 'var(--text)';
+  }
+  throw err;
+});
 
 const ex1Run = document.querySelector<HTMLButtonElement>('#ex1-run');
 const ex1Message = document.querySelector<HTMLTextAreaElement>('#ex1-message');
@@ -156,25 +163,27 @@ if (ex1Run && ex1Message) {
   ex1Run.addEventListener('click', async () => {
     ex1Run.disabled = true;
     try {
-    const suite = await suitePromise;
-    const msg = ex1Message.value;
-    const all = await composeAll(suite, msg);
-    const mteEl = document.querySelector<HTMLElement>('#ex1-mte');
-    const etmEl = document.querySelector<HTMLElement>('#ex1-etm');
-    const eamEl = document.querySelector<HTMLElement>('#ex1-eam');
-    const aeadEl = document.querySelector<HTMLElement>('#ex1-aead');
-    if (mteEl) {
-      mteEl.textContent = `iv=${toHex(all.mte.iv)}\nciphertext=${toHex(all.mte.ciphertext)}`;
-    }
-    if (etmEl) {
-      etmEl.textContent = `iv=${toHex(all.etm.iv)}\nciphertext=${toHex(all.etm.ciphertext)}\ntag=${toHex(all.etm.tag)}`;
-    }
-    if (eamEl) {
-      eamEl.textContent = `iv=${toHex(all.eam.iv)}\nciphertext=${toHex(all.eam.ciphertext)}\ntag(plaintext)=${toHex(all.eam.tag)}`;
-    }
-    if (aeadEl) {
-      aeadEl.textContent = `iv=${toHex(all.aead.iv)}\nciphertext=${toHex(all.aead.ciphertext)}\ntag=${toHex(all.aead.tag)}`;
-    }
+      const suite = await suitePromise;
+      const msg = ex1Message.value;
+      const all = await composeAll(suite, msg);
+      const mteEl = document.querySelector<HTMLElement>('#ex1-mte');
+      const etmEl = document.querySelector<HTMLElement>('#ex1-etm');
+      const eamEl = document.querySelector<HTMLElement>('#ex1-eam');
+      const aeadEl = document.querySelector<HTMLElement>('#ex1-aead');
+      if (mteEl) {
+        mteEl.textContent = `iv=${toHex(all.mte.iv)}\nciphertext=${toHex(all.mte.ciphertext)}`;
+      }
+      if (etmEl) {
+        etmEl.textContent = `iv=${toHex(all.etm.iv)}\nciphertext=${toHex(all.etm.ciphertext)}\ntag=${toHex(all.etm.tag)}`;
+      }
+      if (eamEl) {
+        eamEl.textContent = `iv=${toHex(all.eam.iv)}\nciphertext=${toHex(all.eam.ciphertext)}\ntag(plaintext)=${toHex(all.eam.tag)}`;
+      }
+      if (aeadEl) {
+        aeadEl.textContent = `iv=${toHex(all.aead.iv)}\nciphertext=${toHex(all.aead.ciphertext)}\ntag=${toHex(all.aead.tag)}`;
+      }
+    } catch (e) {
+      console.error('Exhibit 1 error:', e);
     } finally {
       ex1Run.disabled = false;
     }
@@ -195,6 +204,11 @@ if (oracleRun && oracleMode && oracleMessage && oracleOutput) {
       const suite = await suitePromise;
       const mode = oracleMode.value;
       const msg = oracleMessage.value;
+
+      if (!msg.trim()) {
+        oracleOutput.textContent = 'Enter a message before running the attack.';
+        return;
+      }
 
       if (mode === 'mte') {
         const packet = await sealMtE(suite, msg);
@@ -218,6 +232,9 @@ if (oracleRun && oracleMode && oracleMessage && oracleOutput) {
       oracleOutput.textContent = blocked
         ? 'EtM check: tampering rejected before decryption. Padding oracle surface disappears.'
         : 'Unexpected result: EtM did not reject tampering early.';
+    } catch (e) {
+      oracleOutput.textContent = 'Error: could not run attack. See console for details.';
+      console.error('Oracle attack error:', e);
     } finally {
       attackRunning = false;
       oracleRun.disabled = false;
@@ -276,6 +293,12 @@ if (tlsPlay) {
     }, 1400);
   });
 }
+
+window.addEventListener('beforeunload', () => {
+  if (tlsTimer !== null) {
+    window.clearInterval(tlsTimer);
+  }
+});
 
 const chkRun = document.querySelector<HTMLButtonElement>('#chk-run');
 const chkAead = document.querySelector<HTMLSelectElement>('#chk-aead');

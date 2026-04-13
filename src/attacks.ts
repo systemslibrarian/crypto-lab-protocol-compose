@@ -5,9 +5,6 @@ import {
   fromUtf8,
   openEtM,
   openMtE,
-  sealEAndM,
-  sealEtM,
-  toHex
 } from './compose';
 
 export interface OracleStep {
@@ -23,15 +20,6 @@ export interface PaddingOracleResult {
   recoveredText: string;
   steps: OracleStep[];
   queries: number;
-}
-
-export interface GenericCompositionResult {
-  messageA: string;
-  messageB: string;
-  tagA: string;
-  tagB: string;
-  tagsMatch: boolean;
-  explanation: string;
 }
 
 export interface TlsTimelinePoint {
@@ -74,13 +62,6 @@ export function createMtEPaddingOracle(suite: CryptoSuite, packet: MtEPacket): P
   return async (iv: Uint8Array, ciphertext: Uint8Array): Promise<boolean> => {
     const result = await openMtE(suite, { iv, ciphertext });
     return result.reason !== 'decrypt-failed-before-mac';
-  };
-}
-
-export function createEtMOracle(suite: CryptoSuite, packet: EtMPacket): PaddingOracle {
-  return async (iv: Uint8Array, ciphertext: Uint8Array): Promise<boolean> => {
-    const result = await openEtM(suite, { iv, ciphertext, tag: packet.tag });
-    return result.ok;
   };
 }
 
@@ -174,29 +155,6 @@ export async function etmRejectsTampering(suite: CryptoSuite, packet: EtMPacket)
     tag: packet.tag
   });
   return result.reason === 'bad-mac-before-decrypt';
-}
-
-export async function runGenericCompositionLeak(
-  suite: CryptoSuite,
-  messageA: string,
-  messageB: string
-): Promise<GenericCompositionResult> {
-  const left = await sealEAndM(suite, messageA);
-  const right = await sealEAndM(suite, messageB);
-  const tagA = toHex(left.tag);
-  const tagB = toHex(right.tag);
-  const tagsMatch = tagA === tagB;
-
-  return {
-    messageA,
-    messageB,
-    tagA,
-    tagB,
-    tagsMatch,
-    explanation: tagsMatch
-      ? 'Encrypt-and-MAC leaks plaintext equality: same plaintext produced identical MAC tags.'
-      : 'Encrypt-and-MAC still leaks a standalone plaintext authenticator that can be replayed or correlated.'
-  };
 }
 
 export function tlsEvolutionNotes(): TlsTimelinePoint[] {
