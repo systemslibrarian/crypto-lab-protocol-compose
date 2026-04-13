@@ -2,6 +2,8 @@ import './style.css';
 import { composeAll, createSuite, sealEtM, sealMtE, toHex } from './compose';
 import { createMtEPaddingOracle, etmRejectsTampering, recoverMtEPlaintext, tlsEvolutionNotes } from './attacks';
 
+let attackRunning = false;
+
 function wireThemeToggle(): void {
   const root = document.documentElement;
   const button = document.querySelector<HTMLButtonElement>('#theme-toggle');
@@ -152,6 +154,8 @@ const ex1Run = document.querySelector<HTMLButtonElement>('#ex1-run');
 const ex1Message = document.querySelector<HTMLTextAreaElement>('#ex1-message');
 if (ex1Run && ex1Message) {
   ex1Run.addEventListener('click', async () => {
+    ex1Run.disabled = true;
+    try {
     const suite = await suitePromise;
     const msg = ex1Message.value;
     const all = await composeAll(suite, msg);
@@ -171,6 +175,9 @@ if (ex1Run && ex1Message) {
     if (aeadEl) {
       aeadEl.textContent = `iv=${toHex(all.aead.iv)}\nciphertext=${toHex(all.aead.ciphertext)}\ntag=${toHex(all.aead.tag)}`;
     }
+    } finally {
+      ex1Run.disabled = false;
+    }
   });
   ex1Run.click();
 }
@@ -181,33 +188,40 @@ const oracleMessage = document.querySelector<HTMLInputElement>('#oracle-message'
 const oracleOutput = document.querySelector<HTMLElement>('#oracle-output');
 if (oracleRun && oracleMode && oracleMessage && oracleOutput) {
   oracleRun.addEventListener('click', async () => {
-    const suite = await suitePromise;
-    const mode = oracleMode.value;
-    const msg = oracleMessage.value;
+    if (attackRunning) return;
+    attackRunning = true;
+    oracleRun.disabled = true;
+    try {
+      const suite = await suitePromise;
+      const mode = oracleMode.value;
+      const msg = oracleMessage.value;
 
-    if (mode === 'mte') {
-      const packet = await sealMtE(suite, msg);
-      const oracle = createMtEPaddingOracle(suite, packet);
-      const result = await recoverMtEPlaintext(packet, oracle);
-      oracleOutput.textContent = 'Recovering bytes...';
-      for (const step of result.steps) {
-        oracleOutput.textContent = `Recovered so far: ${step.recoveredTextPreview}`;
-        // Short delay for visible byte-by-byte progression.
-        await new Promise((resolve) => setTimeout(resolve, 8));
+      if (mode === 'mte') {
+        const packet = await sealMtE(suite, msg);
+        const oracle = createMtEPaddingOracle(suite, packet);
+        oracleOutput.textContent = 'Running padding oracle attack...';
+        const result = await recoverMtEPlaintext(packet, oracle);
+        for (const step of result.steps) {
+          oracleOutput.textContent = `Recovered so far: ${step.recoveredTextPreview}`;
+          await new Promise((resolve) => setTimeout(resolve, 8));
+        }
+        oracleOutput.textContent = [
+          `Recovered bytes (includes MAC/padding): ${result.recoveredText}`,
+          `Oracle queries: ${result.queries}`,
+          'MtE exposed a decrypt-before-auth oracle surface.'
+        ].join('\n');
+        return;
       }
-      oracleOutput.textContent = [
-        `Recovered bytes (includes MAC/padding): ${result.recoveredText}`,
-        `Oracle queries: ${result.queries}`,
-        'MtE exposed a decrypt-before-auth oracle surface.'
-      ].join('\n');
-      return;
-    }
 
-    const packet = await sealEtM(suite, msg);
-    const blocked = await etmRejectsTampering(suite, packet);
-    oracleOutput.textContent = blocked
-      ? 'EtM check: tampering rejected before decryption. Padding oracle surface disappears.'
-      : 'Unexpected result: EtM did not reject tampering early.';
+      const packet = await sealEtM(suite, msg);
+      const blocked = await etmRejectsTampering(suite, packet);
+      oracleOutput.textContent = blocked
+        ? 'EtM check: tampering rejected before decryption. Padding oracle surface disappears.'
+        : 'Unexpected result: EtM did not reject tampering early.';
+    } finally {
+      attackRunning = false;
+      oracleRun.disabled = false;
+    }
   });
 }
 
@@ -280,9 +294,12 @@ if (chkRun && chkAead && chkEtm && chkOrder && chkOutput) {
     if (usesAead) {
       score = 100;
       rating = 'safe by design';
-    } else if (usesEtm || order === 'etm') {
+    } else if (usesEtm && order === 'etm') {
       score = 78;
       rating = 'acceptable with care';
+    } else if (order === 'etm' && !usesEtm) {
+      score = 55;
+      rating = 'claims EtM order but not confirmed — verify implementation';
     } else if (order === 'eam') {
       score = 44;
       rating = 'information leak risk';

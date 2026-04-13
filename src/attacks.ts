@@ -222,6 +222,3 @@ export function tlsEvolutionNotes(): TlsTimelinePoint[] {
   ];
 }
 
-export async function runAttackDemo(): Promise<void> {
-  return Promise.resolve();
-}

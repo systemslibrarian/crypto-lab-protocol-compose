@@ -238,6 +238,4 @@ export async function composeAll(suite: CryptoSuite, message: string): Promise<C
   return { mte, etm, eam, aead };
 }
 
-export async function runCompositionDemo(): Promise<void> {
-  return Promise.resolve();
-}
+
