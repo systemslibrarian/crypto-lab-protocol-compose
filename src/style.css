@@ -26,6 +26,38 @@ body {
   background: radial-gradient(circle at 15% 10%, #163154 0%, var(--bg) 55%);
   color: var(--text);
   font-family: 'IBM Plex Sans', 'Segoe UI', sans-serif;
+  line-height: 1.6;
+  -webkit-text-size-adjust: 100%;
+}
+
+.skip-link {
+  position: absolute;
+  left: -10000px;
+  top: auto;
+  z-index: 100;
+}
+
+.skip-link:focus-visible {
+  left: 1rem;
+  top: 1rem;
+  background: var(--panel);
+  color: var(--text);
+  padding: 0.6rem 1rem;
+  border: 2px solid var(--line);
+  border-radius: 0.5rem;
+  font-weight: 600;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .page {
@@ -34,6 +66,8 @@ body {
   padding: 1rem;
   display: grid;
   gap: 1rem;
+  overflow-x: hidden;
+  word-wrap: break-word;
 }
 
 .hero {
@@ -98,12 +132,21 @@ button {
   background: var(--panel);
   color: var(--text);
   font: inherit;
+  min-height: 44px;
+  font-size: 1rem;
 }
 
 textarea,
 input,
 select {
   padding: 0.55rem;
+  width: 100%;
+  max-width: 100%;
+}
+
+textarea {
+  min-height: 5rem;
+  resize: vertical;
 }
 
 button {
@@ -113,6 +156,15 @@ button {
 
 button:hover {
   background: var(--bg);
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+a:focus-visible {
+  outline: 3px solid var(--line);
+  outline-offset: 2px;
 }
 
 a {
@@ -176,5 +228,50 @@ ul {
 @media (max-width: 900px) {
   .three-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .page {
+    padding: 0.5rem;
+  }
+
+  .hero,
+  .panel,
+  .card {
+    padding: 0.75rem;
+    border-radius: 0.7rem;
+  }
+
+  h1 {
+    font-size: 1.35rem;
+  }
+
+  h2 {
+    font-size: 1.15rem;
+  }
+
+  h3 {
+    font-size: 1rem;
+  }
+
+  .hex {
+    font-size: 0.8rem;
+    padding: 0.5rem;
+    min-height: 3rem;
+  }
+
+  .btn-row {
+    flex-direction: column;
+  }
+
+  .btn-row button {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel {
+    animation: none;
   }
 }

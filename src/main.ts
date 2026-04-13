@@ -31,8 +31,10 @@ if (!app) {
 }
 
 app.innerHTML = `
-  <main class="page">
-    <header class="hero">
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <div id="aria-announcer" role="status" aria-live="polite" aria-atomic="true" class="sr-only"></div>
+  <main class="page" id="main-content">
+    <header class="hero" role="banner">
       <button
         id="theme-toggle"
         type="button"
@@ -86,11 +88,11 @@ app.innerHTML = `
       </select>
       <label for="oracle-message">Attack Message</label>
       <input id="oracle-message" value="pay=bob;amt=1337" />
-      <button id="oracle-run" type="button">Padding Oracle Runner</button>
+      <button id="oracle-run" type="button" aria-describedby="oracle-output">Padding Oracle Runner</button>
       <p class="note">
         Related lab: <a href="https://systemslibrarian.github.io/crypto-lab-padding-oracle/" target="_blank" rel="noreferrer">crypto-lab-padding-oracle</a>
       </p>
-      <pre id="oracle-output" class="hex"></pre>
+      <pre id="oracle-output" class="hex" role="status" aria-live="polite"></pre>
     </section>
 
     <section class="panel" aria-labelledby="ex3-title">
@@ -111,7 +113,7 @@ app.innerHTML = `
         <button id="tls-play" type="button">TLS Evolution Walkthrough</button>
         <button id="tls-next" type="button">Next</button>
       </div>
-      <article id="tls-card" class="card"></article>
+      <article id="tls-card" class="card" role="region" aria-live="polite" aria-label="Current TLS version detail"></article>
     </section>
 
     <section class="panel" aria-labelledby="ex5-title">
@@ -133,11 +135,11 @@ app.innerHTML = `
         <option value="eam">E&M</option>
       </select>
       <button id="chk-run" type="button">Compute Safety Score</button>
-      <pre id="chk-output" class="hex"></pre>
+      <pre id="chk-output" class="hex" role="status" aria-live="polite"></pre>
     </section>
 
-    <footer class="hero">
-      <p>"So whether you eat or drink or whatever you do, do it all for the glory of God." - 1 Corinthians 10:31</p>
+    <footer class="hero" role="contentinfo">
+      <p>"So whether you eat or drink or whatever you do, do it all for the glory of God." — 1 Corinthians 10:31</p>
     </footer>
   </main>
 `;
