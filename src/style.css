@@ -6,6 +6,14 @@
   --line: #294666;
 }
 
+:root[data-theme='light'] {
+  --bg: #eaf1f8;
+  --panel: #ffffff;
+  --text: #1a2d42;
+  --muted: #4c647c;
+  --line: #a9bfd6;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -26,10 +34,31 @@ body {
 }
 
 .hero {
+  position: relative;
   border: 1px solid var(--line);
   border-radius: 1rem;
   padding: 1rem;
   background: var(--panel);
+}
+
+.theme-toggle {
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 10;
+}
+
+.theme-toggle:hover {
+  background: var(--bg);
 }
 
 h1 {
