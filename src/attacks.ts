@@ -2,6 +2,7 @@ import {
   type CryptoSuite,
   type EtMPacket,
   type MtEPacket,
+  concatBytes,
   fromUtf8,
   openEtM,
   openMtE,
@@ -30,17 +31,6 @@ export interface TlsTimelinePoint {
 }
 
 type PaddingOracle = (iv: Uint8Array, ciphertext: Uint8Array) => Promise<boolean>;
-
-function concatBytes(...parts: Uint8Array[]): Uint8Array {
-  const total = parts.reduce((sum, part) => sum + part.length, 0);
-  const out = new Uint8Array(total);
-  let offset = 0;
-  for (const part of parts) {
-    out.set(part, offset);
-    offset += part.length;
-  }
-  return out;
-}
 
 function splitBlocks(bytes: Uint8Array, blockSize = 16): Uint8Array[] {
   const blocks: Uint8Array[] = [];

@@ -89,7 +89,7 @@ app.innerHTML = `
         <option value="etm">EtM (surface closed)</option>
       </select>
       <label for="oracle-message">Attack Message</label>
-      <input id="oracle-message" value="pay=bob;amt=1337" />
+      <input id="oracle-message" value="pay=bob;amt=1337" maxlength="64" />
       <button id="oracle-run" type="button" aria-describedby="oracle-output">Padding Oracle Runner</button>
       <p class="note">
         Related lab: <a href="https://systemslibrarian.github.io/crypto-lab-padding-oracle/" target="_blank" rel="noreferrer">crypto-lab-padding-oracle</a>
