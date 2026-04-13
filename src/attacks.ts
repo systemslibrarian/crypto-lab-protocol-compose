@@ -48,7 +48,7 @@ function safeDecode(bytes: Uint8Array): string {
   }
 }
 
-export function createMtEPaddingOracle(suite: CryptoSuite, packet: MtEPacket): PaddingOracle {
+export function createMtEPaddingOracle(suite: CryptoSuite): PaddingOracle {
   return async (iv: Uint8Array, ciphertext: Uint8Array): Promise<boolean> => {
     const result = await openMtE(suite, { iv, ciphertext });
     return result.reason !== 'decrypt-failed-before-mac';

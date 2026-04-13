@@ -1,8 +1,6 @@
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
-export type CompositionMode = 'mte' | 'etm' | 'eam' | 'aead';
-
 export interface CryptoSuite {
   cbcKey: CryptoKey;
   hmacKey: CryptoKey;

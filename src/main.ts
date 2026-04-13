@@ -34,7 +34,6 @@ if (!app) {
 
 app.innerHTML = `
   <a class="skip-link" href="#main-content">Skip to main content</a>
-  <div id="aria-announcer" role="status" aria-live="polite" aria-atomic="true" class="sr-only"></div>
   <main class="page" id="main-content">
     <header class="hero" role="banner">
       <button
@@ -211,7 +210,7 @@ if (oracleRun && oracleMode && oracleMessage && oracleOutput) {
 
       if (mode === 'mte') {
         const packet = await sealMtE(suite, msg);
-        const oracle = createMtEPaddingOracle(suite, packet);
+        const oracle = createMtEPaddingOracle(suite);
         oracleOutput.textContent = 'Running padding oracle attack...';
         const result = await recoverMtEPlaintext(packet, oracle);
         for (const step of result.steps) {
