@@ -28,6 +28,7 @@ export interface TlsTimelinePoint {
   composition: string;
   failureOrWin: string;
   lesson: string;
+  safety: 'danger' | 'warn' | 'safe';
 }
 
 type PaddingOracle = (iv: Uint8Array, ciphertext: Uint8Array) => Promise<boolean>;
@@ -153,19 +154,22 @@ export function tlsEvolutionNotes(): TlsTimelinePoint[] {
       version: 'TLS 1.0 / 1.1',
       composition: 'CBC with MAC-then-Encrypt record processing',
       failureOrWin: 'BEAST and CBC fragility under record-level composition',
-      lesson: 'Encrypting MACed plaintext still left exploitable structure and side-channel surface.'
+      lesson: 'Encrypting MACed plaintext still left exploitable structure and side-channel surface.',
+      safety: 'danger'
     },
     {
       version: 'TLS 1.2',
       composition: 'Still permits CBC MtE suites and therefore Lucky Thirteen class timing issues',
       failureOrWin: 'Residual risk from decryption-before-authentication code paths',
-      lesson: 'Optional safer ciphers are not enough when dangerous composition remains negotiable.'
+      lesson: 'Optional safer ciphers are not enough when dangerous composition remains negotiable.',
+      safety: 'warn'
     },
     {
       version: 'TLS 1.3',
       composition: 'AEAD-only mandate (AES-GCM, ChaCha20-Poly1305, etc.)',
       failureOrWin: 'Removes CBC MtE record layer entirely',
-      lesson: 'Protocol redesign constrained composition choices to eliminate known attack classes.'
+      lesson: 'Protocol redesign constrained composition choices to eliminate known attack classes.',
+      safety: 'safe'
     }
   ];
 }

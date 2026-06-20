@@ -28,6 +28,13 @@ The demo lets you encrypt a live message across composition modes and inspect re
 - TLS 1.0 BEAST-era CBC composition weakness: CBC record chaining and composition details enabled practical chosen-plaintext attacks.
 - Implementation pitfall in verification order: checking authenticity after decryption recreates oracle surfaces even if AES and HMAC are individually correct.
 
+## Development
+
+- `npm run dev` — local dev server.
+- `npm run build` — type-check and produce the production bundle.
+- `npm test` — Vitest suite covering the live crypto: composition round-trips, tamper rejection, byte-for-byte padding-oracle recovery, the E&M equality leak, CRIME compression recovery, and measured WCAG AA contrast for every color token in both themes.
+- `npm run test:a11y` — real-browser accessibility audit (Playwright + axe-core, WCAG 2.0/2.1 A + AA) run against the production build in both light and dark themes. Run `npm run build` first.
+
 ## Real-World Usage
 
 - TLS 1.0/1.1: relied on CBC-era constructions that motivated later composition hardening.
