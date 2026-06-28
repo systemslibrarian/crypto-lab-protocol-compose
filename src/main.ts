@@ -272,6 +272,12 @@ app.innerHTML = `
     </main>
 
     <footer class="hero" role="contentinfo">
+      <p>Related demos:
+        <a href="https://systemslibrarian.github.io/crypto-lab-padding-oracle/">crypto-lab-padding-oracle</a>,
+        <a href="https://systemslibrarian.github.io/crypto-lab-aes-modes/">crypto-lab-aes-modes</a>,
+        <a href="https://systemslibrarian.github.io/crypto-lab-nonce-guard/">crypto-lab-nonce-guard</a>,
+        <a href="https://systemslibrarian.github.io/crypto-lab-timing-oracle/">crypto-lab-timing-oracle</a>,
+        <a href="https://systemslibrarian.github.io/crypto-lab-mac-race/">crypto-lab-mac-race</a></p>
       <p>"So whether you eat or drink or whatever you do, do it all for the glory of God." — 1 Corinthians 10:31</p>
     </footer>
   </div>
