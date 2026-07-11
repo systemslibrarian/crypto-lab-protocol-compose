@@ -14,6 +14,8 @@ export interface OracleStep {
   guess: number;
   recoveredByte: number;
   recoveredTextPreview: string;
+  /** Total oracle queries spent by the moment this byte was recovered. */
+  queriesSoFar: number;
 }
 
 export interface PaddingOracleResult {
@@ -115,7 +117,8 @@ export async function recoverMtEPlaintext(packet: MtEPacket, oracle: PaddingOrac
           byteIndex: pos,
           guess,
           recoveredByte: plainBlock[pos],
-          recoveredTextPreview: safeDecode(recovered.slice(0, globalOffset + 1))
+          recoveredTextPreview: safeDecode(recovered.slice(0, globalOffset + 1)),
+          queriesSoFar: queries
         });
         found = true;
         break;

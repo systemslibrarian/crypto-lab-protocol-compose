@@ -16,6 +16,13 @@ import {
   tlsEvolutionNotes,
 } from './attacks';
 import { CRIME_ALPHABET, crimeRecover, randomSecret } from './crime';
+import {
+  type CompareFn,
+  constantTimeEqual,
+  naiveEqual,
+  randomTag,
+  recoverViaTiming,
+} from './timing';
 
 let attackRunning = false;
 
@@ -109,12 +116,25 @@ app.innerHTML = `
     <section class="panel" aria-labelledby="ex1-title">
       <h2 id="ex1-title">Exhibit 1 — The Four Orders, Side by Side</h2>
       <p class="note">
-        The same message is sealed <strong>twice</strong> under each composition. Compare the two
-        sends: anything that stays identical across sends is something an eavesdropper can exploit.
+        Seal <strong>two</strong> messages under each composition and compare their outputs. Try it
+        with <strong>different</strong> messages, then make them <strong>identical</strong>: anything
+        that turns equal only when the plaintexts match is an equality leak an eavesdropper can read.
       </p>
-      <label for="ex1-message">Message</label>
-      <textarea id="ex1-message">transfer=2500&amp;to=alice</textarea>
-      <button id="ex1-run" type="button">Seal it twice in every mode</button>
+      <div class="msg-pair">
+        <div>
+          <label for="ex1-a">Message A</label>
+          <textarea id="ex1-a">transfer=2500&amp;to=alice</textarea>
+        </div>
+        <div>
+          <label for="ex1-b">Message B</label>
+          <textarea id="ex1-b">transfer=2500&amp;to=bob</textarea>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button id="ex1-run" type="button">Seal both in every mode</button>
+        <button id="ex1-match" type="button">Make B identical to A</button>
+      </div>
+      <p id="ex1-hint" class="note" role="status" aria-live="polite"></p>
       <div class="three-grid">
         <article class="card" id="ex1-mte">
           <h3>MAC-then-Encrypt (MtE)</h3>
@@ -138,9 +158,11 @@ app.innerHTML = `
         <div class="card-body"></div>
       </article>
       <p class="takeaway">
-        Same three primitives every time — only the <strong>order</strong> changes. Yet E&amp;M
-        repeats its tag (it leaks when you resend a message), and MtE forces the receiver to decrypt
-        before it can authenticate. That decrypt-first habit is the door Exhibit 2 walks through.
+        Same three primitives every time — only the <strong>order</strong> changes. Yet when A and B
+        are identical, E&amp;M hands back the <strong>same tag</strong> (its tag is HMAC of the
+        plaintext, so equal messages leak), while EtM and AEAD stay different because a fresh random
+        IV/nonce feeds every tag. MtE, meanwhile, forces the receiver to decrypt before it can
+        authenticate — the decrypt-first door Exhibit 2 walks through.
       </p>
     </section>
 
@@ -165,6 +187,7 @@ app.innerHTML = `
       </p>
       <div class="oracle-output">
         <div id="oracle-visual" class="hex" aria-hidden="true">Press “Run the attack” to begin.</div>
+        <p id="oracle-counter" class="query-counter" aria-hidden="true"></p>
         <p id="oracle-status" class="status-line" role="status" aria-live="polite"></p>
       </div>
       <details class="explainer">
@@ -210,7 +233,56 @@ app.innerHTML = `
     </section>
 
     <section class="panel" aria-labelledby="ex3-title">
-      <h2 id="ex3-title">Exhibit 3 — A Different Seam: Compress-then-Encrypt (CRIME)</h2>
+      <h2 id="ex3-title">Exhibit 3 — The Clock Never Lies: Timing Side-Channels</h2>
+      <p class="note">
+        Even Encrypt-then-MAC breaks if the tag check itself leaks. A comparison that
+        <strong>returns as soon as it hits a wrong byte</strong> runs longer the more leading bytes
+        are correct — so the time a rejection takes reveals how much of a forged tag is right, and the
+        whole tag falls out one byte at a time. That seam is <strong>Lucky Thirteen</strong>. The
+        attacker below never reads the tag; it only watches how long the compare runs.
+      </p>
+      <label for="tmg-mode">Tag comparison under attack</label>
+      <select id="tmg-mode">
+        <option value="naive">Naive compare — bails at the first wrong byte (vulnerable)</option>
+        <option value="ct">Constant-time compare — always scans every byte (safe)</option>
+      </select>
+      <div class="crime-secret">
+        <span class="repeat-label">secret tag (the attacker cannot read this directly)</span>
+        <code id="tmg-secret"></code>
+      </div>
+      <button id="tmg-run" type="button" aria-describedby="tmg-status">Recover the tag using only timing</button>
+      <div class="oracle-output">
+        <div id="tmg-visual" class="hex" aria-hidden="true"></div>
+        <p id="tmg-counter" class="query-counter" aria-hidden="true"></p>
+        <p id="tmg-status" class="status-line" role="status" aria-live="polite"></p>
+      </div>
+      <p class="note">
+        Timing leaks in depth:
+        <a href="https://systemslibrarian.github.io/crypto-lab-timing-oracle/" target="_blank" rel="noreferrer">crypto-lab-timing-oracle<span class="sr-only"> (opens in new tab)</span></a>
+      </p>
+      <details class="explainer">
+        <summary>Why does early-exit leak — and how does constant-time close it?</summary>
+        <p class="note">
+          A byte-by-byte compare that <code>return</code>s on the first mismatch runs in time
+          proportional to the length of the correct prefix. Measure that time across many guesses and
+          the correct next byte is the one whose comparison runs one step longer. The fix never
+          branches on the secret: it ORs together every byte difference and always scans the whole
+          tag, so the running time is identical whatever you feed it.
+        </p>
+        <pre class="code-block"><code>// leaks: stops early, time ∝ correct prefix length
+for (let i = 0; i &lt; tag.length; i++)
+  if (a[i] !== tag[i]) return false;   // ← the timing tell
+return true;
+
+// safe: constant work, no secret-dependent branch
+let diff = 0;
+for (let i = 0; i &lt; tag.length; i++) diff |= a[i] ^ tag[i];
+return diff === 0;</code></pre>
+      </details>
+    </section>
+
+    <section class="panel" aria-labelledby="ex4-title">
+      <h2 id="ex4-title">Exhibit 4 — A Different Seam: Compress-then-Encrypt (CRIME)</h2>
       <p class="note">
         Same lesson, new seam. Compressing <em>before</em> encrypting leaks plaintext through the
         ciphertext's <strong>length</strong> — encryption hides content, not size. The attacker below
@@ -226,6 +298,7 @@ app.innerHTML = `
       </div>
       <div class="oracle-output">
         <div id="crime-visual" class="hex" aria-hidden="true"></div>
+        <p id="crime-counter" class="query-counter" aria-hidden="true"></p>
         <p id="crime-status" class="status-line" role="status" aria-live="polite"></p>
       </div>
       <p class="note">
@@ -235,8 +308,8 @@ app.innerHTML = `
       </p>
     </section>
 
-    <section class="panel" aria-labelledby="ex4-title">
-      <h2 id="ex4-title">Exhibit 4 — How TLS Learned This Lesson</h2>
+    <section class="panel" aria-labelledby="ex5-title">
+      <h2 id="ex5-title">Exhibit 5 — How TLS Learned This Lesson</h2>
       <p class="note">Step through the record layer from TLS 1.0 to 1.3, or press play to watch it evolve.</p>
       <div class="tls-dots" id="tls-dots" aria-hidden="true"></div>
       <div class="btn-row">
@@ -247,8 +320,8 @@ app.innerHTML = `
       <article id="tls-card" class="card" role="region" aria-live="polite" aria-label="Current TLS version detail"></article>
     </section>
 
-    <section class="panel" aria-labelledby="ex5-title">
-      <h2 id="ex5-title">Exhibit 5 — Score Your Own Protocol</h2>
+    <section class="panel" aria-labelledby="ex6-title">
+      <h2 id="ex6-title">Exhibit 6 — Score Your Own Protocol</h2>
       <p class="note">Answer for a design you are reviewing and see where it lands.</p>
       <label for="chk-aead">Are you using AEAD (e.g. AES-GCM, ChaCha20-Poly1305)?</label>
       <select id="chk-aead">
@@ -285,6 +358,63 @@ app.innerHTML = `
 
 wireThemeToggle();
 
+// ---------------------------------------------------------------------------
+// Shareable deep-link state. Every persisted control maps to one short query
+// key in the URL hash, so an instructor can link to a specific configuration.
+// ---------------------------------------------------------------------------
+
+const STATE_FIELDS: ReadonlyArray<readonly [key: string, selector: string]> = [
+  ['a', '#ex1-a'],
+  ['b', '#ex1-b'],
+  ['om', '#oracle-mode'],
+  ['omsg', '#oracle-message'],
+  ['tm', '#tmg-mode'],
+  ['ca', '#chk-aead'],
+  ['ce', '#chk-etm'],
+  ['co', '#chk-order'],
+];
+
+let applyingState = false;
+
+function writeState(): void {
+  if (applyingState) {
+    return;
+  }
+  const params = new URLSearchParams();
+  for (const [key, selector] of STATE_FIELDS) {
+    const el = document.querySelector<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(selector);
+    if (el && el.value !== '') {
+      params.set(key, el.value);
+    }
+  }
+  const query = params.toString();
+  history.replaceState(null, '', query ? `#${query}` : location.pathname + location.search);
+}
+
+function applyStateFromUrl(): void {
+  const params = new URLSearchParams(location.hash.slice(1));
+  if ([...params.keys()].length === 0) {
+    return;
+  }
+  applyingState = true;
+  for (const [key, selector] of STATE_FIELDS) {
+    if (!params.has(key)) {
+      continue;
+    }
+    const el = document.querySelector<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(selector);
+    if (el) {
+      el.value = params.get(key) ?? '';
+    }
+  }
+  applyingState = false;
+}
+
+// Keep the URL fresh as controls change, so the address bar is always shareable.
+for (const [, selector] of STATE_FIELDS) {
+  const el = document.querySelector<HTMLElement>(selector);
+  el?.addEventListener(el instanceof HTMLSelectElement ? 'change' : 'input', writeState);
+}
+
 const suitePromise = createSuite().catch((err) => {
   const banner = document.querySelector<HTMLElement>('.hero p');
   if (banner) {
@@ -299,10 +429,11 @@ const suitePromise = createSuite().catch((err) => {
 // ---------------------------------------------------------------------------
 
 function repeatRow(label: string, a: Uint8Array, b: Uint8Array): string {
-  return `<div class="repeat">
-    <span class="repeat-label">${escapeHtml(label)}</span>
-    <code>send 1: ${shortHex(a)}</code>
-    <code>send 2: ${shortHex(b)}</code>
+  const match = toHex(a) === toHex(b);
+  return `<div class="repeat${match ? ' repeat-match' : ''}">
+    <span class="repeat-label">${escapeHtml(label)}${match ? ' — identical across A and B' : ''}</span>
+    <code>msg A: ${shortHex(a)}</code>
+    <code>msg B: ${shortHex(b)}</code>
   </div>`;
 }
 
@@ -313,18 +444,23 @@ function renderCardBody(card: HTMLElement | null, html: string): void {
   }
 }
 
-async function runExhibit1(suite: CryptoSuite, message: string): Promise<void> {
+async function runExhibit1(suite: CryptoSuite, messageA: string, messageB: string): Promise<void> {
   const [mteA, mteB, etmA, etmB, eamA, eamB, aeadA, aeadB] = await Promise.all([
-    sealMtE(suite, message), sealMtE(suite, message),
-    sealEtM(suite, message), sealEtM(suite, message),
-    sealEAndM(suite, message), sealEAndM(suite, message),
-    sealAead(suite, message), sealAead(suite, message),
+    sealMtE(suite, messageA), sealMtE(suite, messageB),
+    sealEtM(suite, messageA), sealEtM(suite, messageB),
+    sealEAndM(suite, messageA), sealEAndM(suite, messageB),
+    sealAead(suite, messageA), sealAead(suite, messageB),
   ]);
+
+  const sameMessage = messageA === messageB;
+  const equalHint = sameMessage
+    ? 'A and B are identical — watch which mode gives it away.'
+    : 'A and B differ. Try “Make B identical to A”.';
 
   renderCardBody(document.querySelector('#ex1-mte'), `
     <p class="attacker-view">Attacker sees: <code>iv + ciphertext</code> (the tag is sealed inside).</p>
     ${repeatRow('ciphertext', mteA.ciphertext, mteB.ciphertext)}
-    ${badge('safe', 'ciphertext differs each send — no equality leak')}
+    ${badge('safe', 'ciphertext differs even for equal messages — no equality leak')}
     ${badge('danger', 'verifier must DECRYPT before it can check the tag → padding oracle')}
   `);
 
@@ -334,7 +470,7 @@ async function runExhibit1(suite: CryptoSuite, message: string): Promise<void> {
     ${repeatRow('tag', etmA.tag, etmB.tag)}
     ${etmTagRepeats
       ? badge('warn', 'tag repeated (unexpected)')
-      : badge('safe', 'tag differs each send — no equality leak')}
+      : badge('safe', 'tag differs even for equal messages — the random IV feeds it')}
     ${badge('safe', 'tag is checked BEFORE decryption → tampering rejected early')}
   `);
 
@@ -343,8 +479,8 @@ async function runExhibit1(suite: CryptoSuite, message: string): Promise<void> {
     <p class="attacker-view">Attacker sees: <code>iv + ciphertext + tag</code>. Tag = HMAC(plaintext).</p>
     ${repeatRow('tag', eamA.tag, eamB.tag)}
     ${eamTagRepeats
-      ? badge('warn', 'identical tag → reveals you re-sent the same message')
-      : badge('safe', 'tag differs (unexpected)')}
+      ? badge('danger', 'identical tag → attacker learns A and B are the same message')
+      : badge('safe', 'different messages → different tags (send equal ones to leak)')}
     ${badge('danger', 'tag covers plaintext, so verifier still decrypts first')}
   `);
 
@@ -354,26 +490,39 @@ async function runExhibit1(suite: CryptoSuite, message: string): Promise<void> {
     ${repeatRow('tag', aeadA.tag, aeadB.tag)}
     ${aeadTagRepeats
       ? badge('warn', 'tag repeated (reused nonce?)')
-      : badge('safe', 'everything differs each send — no equality leak')}
+      : badge('safe', 'everything differs even for equal messages — no equality leak')}
     ${badge('safe', 'authentication and decryption happen atomically')}
   `);
+
+  const hint = document.querySelector<HTMLElement>('#ex1-hint');
+  if (hint) {
+    hint.textContent = equalHint;
+  }
 }
 
 const ex1Run = document.querySelector<HTMLButtonElement>('#ex1-run');
-const ex1Message = document.querySelector<HTMLTextAreaElement>('#ex1-message');
-if (ex1Run && ex1Message) {
+const ex1Match = document.querySelector<HTMLButtonElement>('#ex1-match');
+const ex1MessageA = document.querySelector<HTMLTextAreaElement>('#ex1-a');
+const ex1MessageB = document.querySelector<HTMLTextAreaElement>('#ex1-b');
+if (ex1Run && ex1MessageA && ex1MessageB) {
   ex1Run.addEventListener('click', async () => {
     ex1Run.disabled = true;
+    writeState();
     try {
       const suite = await suitePromise;
-      await runExhibit1(suite, ex1Message.value);
+      await runExhibit1(suite, ex1MessageA.value, ex1MessageB.value);
     } catch (e) {
       console.error('Exhibit 1 error:', e);
     } finally {
       ex1Run.disabled = false;
     }
   });
-  ex1Run.click();
+  if (ex1Match) {
+    ex1Match.addEventListener('click', () => {
+      ex1MessageB.value = ex1MessageA.value;
+      ex1Run.click();
+    });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -384,7 +533,14 @@ const oracleRun = document.querySelector<HTMLButtonElement>('#oracle-run');
 const oracleMode = document.querySelector<HTMLSelectElement>('#oracle-mode');
 const oracleMessage = document.querySelector<HTMLInputElement>('#oracle-message');
 const oracleVisual = document.querySelector<HTMLElement>('#oracle-visual');
+const oracleCounter = document.querySelector<HTMLElement>('#oracle-counter');
 const oracleStatus = document.querySelector<HTMLElement>('#oracle-status');
+
+function renderCounter(el: HTMLElement | null, count: number, unit: string): void {
+  if (el) {
+    el.innerHTML = `<span class="counter-num">${count.toLocaleString()}</span> ${escapeHtml(unit)}`;
+  }
+}
 
 function renderRecovery(buf: (number | null)[], secretLen: number): string {
   let secret = '';
@@ -406,10 +562,13 @@ if (oracleRun && oracleMode && oracleMessage && oracleVisual && oracleStatus) {
     attackRunning = true;
     oracleRun.disabled = true;
     oracleStatus.className = 'status-line';
+    writeState();
     try {
       const suite = await suitePromise;
       const mode = oracleMode.value;
       const msg = oracleMessage.value;
+
+      if (oracleCounter) oracleCounter.innerHTML = '';
 
       if (!msg.trim()) {
         oracleVisual.textContent = '';
@@ -432,18 +591,21 @@ if (oracleRun && oracleMode && oracleMessage && oracleVisual && oracleStatus) {
             buf[step.blockIndex * 16 + step.byteIndex] = step.recoveredByte;
           }
           oracleVisual.innerHTML = renderRecovery(buf, secretLen);
+          renderCounter(oracleCounter, result.queries, 'oracle queries');
         } else {
           for (const step of result.steps) {
             buf[step.blockIndex * 16 + step.byteIndex] = step.recoveredByte;
             oracleVisual.innerHTML = renderRecovery(buf, secretLen);
+            renderCounter(oracleCounter, step.queriesSoFar, 'oracle queries');
             await new Promise((resolve) => setTimeout(resolve, 12));
           }
+          renderCounter(oracleCounter, result.queries, 'oracle queries');
         }
 
         oracleStatus.className = 'status-line verdict-danger';
-        oracleStatus.textContent =
-          `✗ MtE broken: recovered the full plaintext in ${result.queries} oracle queries — ` +
-          `no key, just pass/fail padding signals. Decrypting before authenticating is the bug.`;
+        oracleStatus.innerHTML =
+          `✗ MtE broken: full plaintext recovered in <span class="stat">${result.queries.toLocaleString()}</span> ` +
+          `oracle queries — no key, just pass/fail padding signals. Decrypting before authenticating is the bug.`;
         return;
       }
 
@@ -453,6 +615,7 @@ if (oracleRun && oracleMode && oracleMessage && oracleVisual && oracleStatus) {
       oracleVisual.innerHTML =
         `<div class="recovery">tampered packet → <span class="recovered">rejected at the MAC</span></div>
          <div class="recovery-extra">0 bytes leaked — decryption never ran, so there is nothing to query.</div>`;
+      renderCounter(oracleCounter, 0, 'oracle queries possible');
       oracleStatus.className = blocked ? 'status-line verdict-safe' : 'status-line';
       oracleStatus.textContent = blocked
         ? '✓ EtM safe: the MAC covers the ciphertext and is checked first. The padding oracle has no surface to attack.'
@@ -476,6 +639,7 @@ const crimeRun = document.querySelector<HTMLButtonElement>('#crime-run');
 const crimeReset = document.querySelector<HTMLButtonElement>('#crime-reset');
 const crimeSecretEl = document.querySelector<HTMLElement>('#crime-secret');
 const crimeVisual = document.querySelector<HTMLElement>('#crime-visual');
+const crimeCounter = document.querySelector<HTMLElement>('#crime-counter');
 const crimeStatus = document.querySelector<HTMLElement>('#crime-status');
 
 let crimeRunning = false;
@@ -515,17 +679,20 @@ if (crimeRun && crimeVisual && crimeStatus) {
       const target = crimeSecret.replace(/^session=/, '');
       crimeStatus.textContent = 'Recovering the secret from compressed length only…';
       renderCrimeProgress('');
+      if (crimeCounter) crimeCounter.innerHTML = '';
       const result = await crimeRecover(target, CRIME_ALPHABET, async (step) => {
         renderCrimeProgress(step.recovered);
+        renderCounter(crimeCounter, step.queriesSoFar, 'length measurements');
         if (!prefersReducedMotion) {
           await new Promise((resolve) => setTimeout(resolve, 90));
         }
       });
       renderCrimeProgress(result.recovered);
+      renderCounter(crimeCounter, result.queries, 'length measurements');
       const success = result.recovered === target;
       crimeStatus.className = success ? 'status-line verdict-danger' : 'status-line';
-      crimeStatus.textContent = success
-        ? `✗ Recovered the full secret in ${result.queries} length measurements — no decryption, just compressed size.`
+      crimeStatus.innerHTML = success
+        ? `✗ Full secret recovered in <span class="stat">${result.queries.toLocaleString()}</span> length measurements — no decryption, just compressed size.`
         : 'Recovery was incomplete (compression noise). Try “New secret”.';
     } catch (e) {
       crimeStatus.className = 'status-line';
@@ -545,6 +712,7 @@ if (crimeReset) {
     crimeSecret = `session=${randomSecret(8)}`;
     renderCrimeSecret();
     if (crimeVisual) crimeVisual.innerHTML = '';
+    if (crimeCounter) crimeCounter.innerHTML = '';
     if (crimeStatus) {
       crimeStatus.className = 'status-line';
       crimeStatus.textContent = '';
@@ -553,7 +721,116 @@ if (crimeReset) {
 }
 
 // ---------------------------------------------------------------------------
-// Exhibit 4 — TLS evolution walkthrough.
+// Exhibit 3 — timing side-channel: recover a tag from comparison time alone.
+// ---------------------------------------------------------------------------
+
+const tmgRun = document.querySelector<HTMLButtonElement>('#tmg-run');
+const tmgMode = document.querySelector<HTMLSelectElement>('#tmg-mode');
+const tmgSecretEl = document.querySelector<HTMLElement>('#tmg-secret');
+const tmgVisual = document.querySelector<HTMLElement>('#tmg-visual');
+const tmgCounter = document.querySelector<HTMLElement>('#tmg-counter');
+const tmgStatus = document.querySelector<HTMLElement>('#tmg-status');
+
+let tmgRunning = false;
+let tmgSecret = randomTag(8);
+
+function renderTmgSecret(): void {
+  if (tmgSecretEl) {
+    // Shown masked: the point is the attacker recovers it without reading it.
+    tmgSecretEl.textContent = Array.from(tmgSecret, () => '··').join(' ');
+  }
+}
+renderTmgSecret();
+
+function renderTmgProgress(recovered: (number | null)[], comparisons: (number | null)[]): string {
+  const cells = recovered.map((b, i) => {
+    const hex = b === null
+      ? '<span class="pending">··</span>'
+      : `<span class="recovered">${b.toString(16).padStart(2, '0')}</span>`;
+    // Bar height ∝ how long the winning guess's compare ran — the timing tell.
+    const c = comparisons[i];
+    const pct = c === null ? 0 : Math.round((c / tmgSecret.length) * 100);
+    return `<div class="tmg-cell">
+      <div class="tmg-bar"><div class="tmg-bar-fill" style="height:${pct}%"></div></div>
+      <code>${hex}</code>
+    </div>`;
+  }).join('');
+  return `<div class="tmg-track">${cells}</div>`;
+}
+
+if (tmgRun && tmgMode && tmgVisual && tmgStatus) {
+  tmgRun.addEventListener('click', async () => {
+    if (tmgRunning) return;
+    tmgRunning = true;
+    tmgRun.disabled = true;
+    tmgStatus.className = 'status-line';
+    writeState();
+    try {
+      const naive = tmgMode.value !== 'ct';
+      const compare: CompareFn = naive ? naiveEqual : constantTimeEqual;
+      const recovered: (number | null)[] = new Array(tmgSecret.length).fill(null);
+      const comparisons: (number | null)[] = new Array(tmgSecret.length).fill(null);
+      tmgVisual.innerHTML = renderTmgProgress(recovered, comparisons);
+      if (tmgCounter) tmgCounter.innerHTML = '';
+      tmgStatus.textContent = naive
+        ? 'Timing the naive compare, one byte at a time…'
+        : 'Timing the constant-time compare, one byte at a time…';
+
+      const result = await recoverViaTiming(tmgSecret, compare, async (step) => {
+        recovered[step.position] = step.byte;
+        comparisons[step.position] = step.comparisons;
+        tmgVisual.innerHTML = renderTmgProgress(recovered, comparisons);
+        renderCounter(tmgCounter, step.queriesSoFar, 'timed guesses');
+        if (!prefersReducedMotion) {
+          await new Promise((resolve) => setTimeout(resolve, 55));
+        }
+      });
+      renderCounter(tmgCounter, result.queries, 'timed guesses');
+
+      if (result.success) {
+        tmgStatus.className = 'status-line verdict-danger';
+        tmgStatus.innerHTML =
+          `✗ Naive compare broken: the whole tag recovered in <span class="stat">${result.queries.toLocaleString()}</span> ` +
+          `timed guesses — the rising bars are the leak. Early-exit turns "how long did it take" into "how many bytes are right."`;
+      } else {
+        // Reveal the real tag so the flat bars are unmistakably not a recovery.
+        tmgStatus.className = 'status-line verdict-safe';
+        tmgStatus.innerHTML =
+          '✓ Constant-time compare holds: every guess costs the same work, so the bars are flat and ' +
+          'no byte stands out. The attack recovers nothing — the real tag was ' +
+          `<code>${toHex(tmgSecret)}</code>.`;
+        const revealed = Array.from(tmgSecret, (b) => b as number | null);
+        const flat = new Array(tmgSecret.length).fill(tmgSecret.length) as (number | null)[];
+        tmgVisual.innerHTML = renderTmgProgress(revealed, flat);
+      }
+    } catch (e) {
+      tmgStatus.className = 'status-line';
+      tmgStatus.textContent = 'Error: could not run the timing demo. See console for details.';
+      console.error('Timing demo error:', e);
+    } finally {
+      tmgRunning = false;
+      tmgRun.disabled = false;
+    }
+  });
+}
+
+if (tmgMode) {
+  tmgMode.addEventListener('change', () => {
+    // Fresh tag per run so repeated attacks are not just replaying one recovery.
+    tmgSecret = randomTag(8);
+    renderTmgSecret();
+    if (tmgVisual) tmgVisual.innerHTML = '';
+    if (tmgCounter) tmgCounter.innerHTML = '';
+    if (tmgStatus) {
+      tmgStatus.className = 'status-line';
+      tmgStatus.textContent = '';
+    }
+    writeState();
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Exhibit 5 — TLS evolution walkthrough.
 // ---------------------------------------------------------------------------
 
 const tlsData = tlsEvolutionNotes();
@@ -634,7 +911,7 @@ window.addEventListener('beforeunload', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Exhibit 5 — protocol safety checklist.
+// Exhibit 6 — protocol safety checklist.
 // ---------------------------------------------------------------------------
 
 const chkRun = document.querySelector<HTMLButtonElement>('#chk-run');
@@ -644,7 +921,11 @@ const chkOrder = document.querySelector<HTMLSelectElement>('#chk-order');
 const chkOutput = document.querySelector<HTMLElement>('#chk-output');
 
 if (chkRun && chkAead && chkEtm && chkOrder && chkOutput) {
+  for (const sel of [chkAead, chkEtm, chkOrder]) {
+    sel.addEventListener('change', writeState);
+  }
   chkRun.addEventListener('click', () => {
+    writeState();
     const usesAead = chkAead.value === 'yes';
     const usesEtm = chkEtm.value === 'yes';
     const order = chkOrder.value;
@@ -660,7 +941,7 @@ if (chkRun && chkAead && chkEtm && chkOrder && chkOutput) {
     } else if (order === 'etm' && usesEtm) {
       kind = 'warn';
       verdict = 'Acceptable with care';
-      reason = 'Encrypt-then-MAC with the MAC verified before decryption is the safe non-AEAD order — but you must also use constant-time tag comparison and a separate MAC key. Prefer AEAD if you can.';
+      reason = 'Encrypt-then-MAC with the MAC verified before decryption is the safe non-AEAD order — but you must also use constant-time tag comparison (Exhibit 3) and a separate MAC key. Prefer AEAD if you can.';
     } else if (order === 'etm' && !usesEtm) {
       kind = 'danger';
       verdict = 'Order claimed, but not enforced';
@@ -680,5 +961,13 @@ if (chkRun && chkAead && chkEtm && chkOrder && chkOutput) {
       <p class="note">${reason}</p>
     `;
   });
-  chkRun.click();
 }
+
+// ---------------------------------------------------------------------------
+// Shareable state + initial run. Apply any ?state from the URL, then fire the
+// auto-running exhibits so a shared link reproduces the same configured result.
+// ---------------------------------------------------------------------------
+
+applyStateFromUrl();
+ex1Run?.click();
+chkRun?.click();

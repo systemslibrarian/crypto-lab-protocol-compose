@@ -17,7 +17,7 @@ crypto-lab-protocol-compose is a browser demo of protocol composition safety usi
 
 **[systemslibrarian.github.io/crypto-lab-protocol-compose](https://systemslibrarian.github.io/crypto-lab-protocol-compose/)**
 
-The demo lets you encrypt a live message across composition modes and inspect resulting ciphertext/tag outputs. You can switch the composition mode selector, execute the padding oracle runner, step through the TLS evolution walkthrough, and compute risk with the protocol safety checklist. Each control is tied to real WebCrypto operations rather than simulated arithmetic.
+The demo lets you encrypt a live message across composition modes and inspect resulting ciphertext/tag outputs. You can seal two messages side by side to surface the Encrypt-and-MAC equality leak, execute the padding oracle runner, recover an HMAC tag from a naive comparison's timing (Lucky Thirteen), step through the TLS evolution walkthrough, and compute risk with the protocol safety checklist. Each control is tied to real WebCrypto operations rather than simulated arithmetic, and the current configuration is encoded in the URL so a specific setup can be shared as a link.
 
 ## What Can Go Wrong
 
@@ -55,7 +55,7 @@ npm run dev
 
 - `npm run dev` — local dev server.
 - `npm run build` — type-check and produce the production bundle.
-- `npm test` — Vitest suite covering the live crypto: composition round-trips, tamper rejection, byte-for-byte padding-oracle recovery, the E&M equality leak, CRIME compression recovery, and measured WCAG AA contrast for every color token in both themes.
+- `npm test` — Vitest suite covering the live crypto: composition round-trips, tamper rejection, byte-for-byte padding-oracle recovery, the E&M equality leak, CRIME compression recovery, timing-side-channel tag recovery (and its constant-time defense), and measured WCAG AA contrast for every color token in both themes.
 - `npm run test:a11y` — real-browser accessibility audit (Playwright + axe-core, WCAG 2.0/2.1 A + AA) run against the production build in both light and dark themes. Run `npm run build` first.
 
 ---

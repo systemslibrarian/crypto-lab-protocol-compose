@@ -29,6 +29,8 @@ export interface CrimeStep {
   position: number;
   recovered: string;
   bestLength: number;
+  /** Total length measurements spent by the moment this character was recovered. */
+  queriesSoFar: number;
 }
 
 export interface CrimeResult {
@@ -65,7 +67,7 @@ export async function crimeRecover(
     }
 
     recovered += bestChar;
-    const step: CrimeStep = { position: pos, recovered, bestLength };
+    const step: CrimeStep = { position: pos, recovered, bestLength, queriesSoFar: queries };
     steps.push(step);
     if (onStep) {
       await onStep(step);

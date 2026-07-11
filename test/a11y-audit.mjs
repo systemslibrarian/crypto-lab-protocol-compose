@@ -37,13 +37,23 @@ try {
 
   await audit('dark theme, initial');
 
-  // Open the CBC explainer and switch the oracle to EtM, then re-audit dark.
-  await page.locator('.explainer summary').click();
+  // Exercise the dynamic exhibits: reveal the E&M equality leak, run the timing
+  // attack so its recovered output renders, open every explainer, and switch the
+  // oracle to EtM. Then re-audit so axe sees the generated DOM too.
+  await page.click('#ex1-match');
+  await page.click('#tmg-run');
+  await page.waitForSelector('#tmg-status.verdict-danger');
+  const summaries = page.locator('.explainer summary');
+  for (let i = 0; i < (await summaries.count()); i += 1) {
+    await summaries.nth(i).click();
+  }
   await page.selectOption('#oracle-mode', 'etm');
-  await audit('dark theme, explainer open');
+  await audit('dark theme, exhibits exercised');
 
-  // Switch to light theme and re-audit (catches theme-specific contrast).
-  await page.click('#theme-toggle');
+  // Switch to light theme and re-audit (catches theme-specific contrast). The
+  // shared header hides each lab's own #theme-toggle and drives the theme from
+  // its own #cl-theme-toggle, so that is the control to click.
+  await page.click('#cl-theme-toggle');
   await page.waitForFunction(() => document.documentElement.dataset.theme === 'light');
   await audit('light theme');
 

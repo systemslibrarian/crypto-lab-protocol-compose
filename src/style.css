@@ -571,6 +571,115 @@ button:disabled {
   word-break: break-all;
 }
 
+/* Exhibit 1 — two-message pair */
+.msg-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.7rem;
+}
+
+.msg-pair label {
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.repeat-match {
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+}
+
+@media (max-width: 600px) {
+  .msg-pair {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Live query counters shared by the attack exhibits */
+.query-counter {
+  margin: 0;
+  font-family: 'IBM Plex Mono', 'Consolas', 'Menlo', monospace;
+  font-size: 0.85rem;
+  color: var(--muted);
+  min-height: 1.2em;
+}
+
+.query-counter .counter-num {
+  color: var(--text);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Prominent count inside a verdict line */
+.stat {
+  font-weight: 800;
+  font-size: 1.15em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Exhibit 3 — timing side-channel */
+.tmg-track {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: flex-end;
+}
+
+.tmg-cell {
+  display: grid;
+  gap: 0.25rem;
+  justify-items: center;
+}
+
+.tmg-bar {
+  width: 1.6rem;
+  height: 2.4rem;
+  display: flex;
+  align-items: flex-end;
+  border: 1px solid var(--line);
+  border-radius: 0.25rem;
+  background: color-mix(in srgb, var(--panel) 70%, var(--bg) 30%);
+  overflow: hidden;
+}
+
+.tmg-bar-fill {
+  width: 100%;
+  background: var(--danger);
+  transition: height 0.25s ease;
+}
+
+.tmg-cell code {
+  font-family: 'IBM Plex Mono', 'Consolas', 'Menlo', monospace;
+  font-size: 0.8rem;
+  color: var(--text);
+}
+
+.tmg-cell .recovered {
+  color: var(--safe);
+  font-weight: 700;
+}
+
+.tmg-cell .pending {
+  color: var(--muted);
+  opacity: 0.6;
+}
+
+/* Constant-time snippet in the explainer */
+.code-block {
+  margin: 0.5rem 0 0;
+  padding: 0.7rem 0.85rem;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 0.6rem;
+  background: color-mix(in srgb, var(--panel) 70%, var(--bg) 30%);
+}
+
+.code-block code {
+  font-family: 'IBM Plex Mono', 'Consolas', 'Menlo', monospace;
+  font-size: 0.82rem;
+  color: var(--text);
+  white-space: pre;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .panel {
     animation: none;
@@ -578,5 +687,9 @@ button:disabled {
 
   .tls-dot-active {
     transform: none;
+  }
+
+  .tmg-bar-fill {
+    transition: none;
   }
 }
