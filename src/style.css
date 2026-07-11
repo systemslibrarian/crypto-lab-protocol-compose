@@ -9,6 +9,9 @@
   --safe: #4ec97a;
   --warn: #e3b341;
   --danger: #ff6b6b;
+  /* Dimmed-but-legible ink for "not yet recovered" glyphs. Uses lightness
+     (not opacity) so contrast stays >=4.5:1 on the panel. */
+  --pending: #8ea3bd;
 }
 
 :root[data-theme='light'] {
@@ -22,6 +25,7 @@
   --safe: #136b2f;
   --warn: #8a5a00;
   --danger: #bd0e22;
+  --pending: #556a80;
 }
 
 * {
@@ -440,8 +444,7 @@ button:disabled {
 }
 
 .recovery-text .pending {
-  color: var(--muted);
-  opacity: 0.6;
+  color: var(--pending);
 }
 
 .recovery-extra {
@@ -659,8 +662,7 @@ button:disabled {
 }
 
 .tmg-cell .pending {
-  color: var(--muted);
-  opacity: 0.6;
+  color: var(--pending);
 }
 
 /* Constant-time snippet in the explainer */
