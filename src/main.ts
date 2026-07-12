@@ -84,18 +84,29 @@ if (!app) {
 app.innerHTML = `
   <a class="skip-link" href="#main-content">Skip to main content</a>
   <div class="page">
-    <header class="hero" role="banner">
+    <header class="cl-hero" role="banner">
       <button
         id="theme-toggle"
         type="button"
         class="theme-toggle"
         aria-label="Switch to light mode"
       >🌙</button>
-      <h1>Protocol Composition Safety</h1>
-      <p>
-        Each primitive below — AES-CBC, HMAC-SHA-256, AES-256-GCM — is secure on its own.
-        Watch what happens when you combine them in different orders.
-      </p>
+      <div class="cl-hero-main">
+        <h1 class="cl-hero-title">Protocol Composition</h1>
+        <p class="cl-hero-sub">MtE · EtM · E&amp;M · AEAD</p>
+        <p class="cl-hero-desc">
+          Seal messages under each way of combining AES-CBC, HMAC-SHA-256, and AES-GCM,
+          then watch padding-oracle, timing, and CRIME attacks break the unsafe orderings.
+        </p>
+      </div>
+      <aside class="cl-hero-why" aria-label="Why it matters">
+        <span class="cl-hero-why-label">WHY IT MATTERS</span>
+        <p class="cl-hero-why-text">
+          Every primitive here is individually secure, yet the wrong composition
+          order sank real systems — padding oracles, Lucky Thirteen, and CRIME all
+          exploited it. Getting the order right is what modern TLS spent a decade fixing.
+        </p>
+      </aside>
     </header>
 
     <main class="stack" id="main-content" tabindex="-1">
