@@ -10,6 +10,7 @@ import {
   utf8,
 } from './compose';
 import {
+  type OracleStep,
   createMtEPaddingOracle,
   etmRejectsTampering,
   recoverMtEPlaintext,
@@ -51,6 +52,16 @@ function badge(kind: 'safe' | 'warn' | 'danger', label: string): string {
   const symbol = kind === 'safe' ? '✓' : kind === 'warn' ? '⚠' : '✗';
   const word = kind === 'safe' ? 'Safe' : kind === 'warn' ? 'Caution' : 'Risk';
   return `<span class="badge badge-${kind}"><span aria-hidden="true">${symbol}</span> <span class="sr-only">${word}: </span>${escapeHtml(label)}</span>`;
+}
+
+/**
+ * Plain-language gloss for a jargon term. Renders the term with a dotted
+ * underline and a native tooltip (title), plus a screen-reader-only expansion so
+ * the definition is available to AT users too — the newcomer on-ramp the
+ * pedagogy review asked for, without cluttering the prose for experts.
+ */
+function gloss(term: string, definition: string): string {
+  return `<span class="gloss" tabindex="0" role="note" title="${escapeHtml(definition)}" aria-label="${escapeHtml(term)}: ${escapeHtml(definition)}">${escapeHtml(term)}</span>`;
 }
 
 function wireThemeToggle(): void {
@@ -117,6 +128,15 @@ app.innerHTML = `
         ciphertexts in flight, and watch how the receiver reacts (accept / reject). They never see
         the key. The question each exhibit asks: <em>does this composition leak anything anyway?</em>
       </p>
+      <p class="note new-here">
+        <strong>New to this?</strong> A few words used throughout — hover or focus the dotted terms
+        for a one-line gloss. A ${gloss('MAC', 'message authentication code: a keyed fingerprint that proves a message was not altered')}
+        is a keyed fingerprint that proves a message was not altered. An
+        ${gloss('IV', 'initialization vector: a fresh random value so identical messages encrypt differently')} or
+        ${gloss('nonce', 'number used once: a fresh value so identical messages encrypt differently')} is a
+        fresh random value so identical messages encrypt differently. ${gloss('AEAD', 'authenticated encryption with associated data: one primitive that encrypts and authenticates together')}
+        is one primitive that encrypts and authenticates together.
+      </p>
       <ul class="legend" aria-label="Badge legend">
         <li>${badge('safe', 'no usable leak')}</li>
         <li>${badge('warn', 'leaks metadata')}</li>
@@ -149,7 +169,7 @@ app.innerHTML = `
       <div class="three-grid">
         <article class="card" id="ex1-mte">
           <h3>MAC-then-Encrypt (MtE)</h3>
-          <p class="note">MAC the plaintext, append the tag, then encrypt both together.</p>
+          <p class="note">${gloss('MAC', 'message authentication code: a keyed fingerprint that proves a message was not altered')} the plaintext, append the tag, then encrypt both together.</p>
           <div class="card-body"></div>
         </article>
         <article class="card" id="ex1-etm">
@@ -164,9 +184,15 @@ app.innerHTML = `
         </article>
       </div>
       <article class="card" id="ex1-aead">
-        <h3>AEAD (AES-256-GCM)</h3>
+        <h3>${gloss('AEAD', 'authenticated encryption with associated data: one primitive that encrypts and authenticates together')} (AES-256-GCM)</h3>
         <p class="note">Confidentiality and integrity from a single, purpose-built primitive.</p>
         <div class="card-body"></div>
+        <p class="note aead-caveat">
+          <strong>Not invincible — it moves the footgun.</strong> AEAD removes the composition seam,
+          but AES-GCM keeps <em>one</em> of its own: reuse a nonce with the same key and confidentiality
+          <em>and</em> integrity collapse. Safe composition still needs a nonce discipline. See
+          <a href="https://systemslibrarian.github.io/crypto-lab-nonce-guard/" target="_blank" rel="noreferrer">crypto-lab-nonce-guard<span class="sr-only"> (opens in new tab)</span></a>.
+        </p>
       </article>
       <p class="takeaway">
         Same three primitives every time — only the <strong>order</strong> changes. Yet when A and B
@@ -177,12 +203,32 @@ app.innerHTML = `
       </p>
     </section>
 
+    <section class="panel spectrum" aria-labelledby="spectrum-title">
+      <h2 id="spectrum-title">You are here: the four orders as a spectrum</h2>
+      <p class="note">
+        The next four exhibits each attack one of these compositions. Read them against this map so
+        you can predict which order a given attack targets <em>before</em> you run it:
+      </p>
+      <ol class="spectrum-list">
+        <li><span class="spectrum-tag spectrum-danger">MtE</span> decrypt-first — <strong>worst</strong>: opens a padding oracle (Exhibit 2).</li>
+        <li><span class="spectrum-tag spectrum-warn">E&amp;M</span> leaks message <strong>equality</strong> (Exhibit 1, the tags that snapped equal).</li>
+        <li><span class="spectrum-tag spectrum-safe">EtM</span> <strong>safe with care</strong> — but only if the tag check is constant-time (Exhibit 3).</li>
+        <li><span class="spectrum-tag spectrum-safe">AEAD</span> <strong>safe by design</strong> — one primitive, no seam to get wrong (with one caveat below).</li>
+      </ol>
+      <p class="note">
+        A cross-cutting reminder: even the right order fails at a different seam — timing (Exhibit 3)
+        and compression (Exhibit 4) leak without touching the composition at all.
+      </p>
+    </section>
+
     <section class="panel" aria-labelledby="ex2-title">
       <h2 id="ex2-title">Exhibit 2 — The Padding Oracle, Live</h2>
       <p class="note">
-        An attacker who can tamper with ciphertext and see only "padding ok / padding bad" can
-        recover the entire plaintext — <strong>one byte at a time, with no key</strong>. MtE leaves
-        that door open; EtM closes it. Switch modes and run it.
+        An attacker who can tamper with ciphertext and see only "padding ok / padding bad" — any
+        such ${gloss('padding oracle', 'any yes/no signal about whether decrypted padding was valid')} — can
+        recover the entire plaintext <strong>one byte at a time, with no key</strong>. MtE leaves
+        that door open; EtM closes it. Switch modes and run it, then watch the diagram below play the
+        attack in step with the recovery.
       </p>
       <label for="oracle-mode">Composition under attack</label>
       <select id="oracle-mode">
@@ -192,6 +238,24 @@ app.innerHTML = `
       <label for="oracle-message">Secret message to steal</label>
       <input id="oracle-message" value="pay=bob;amt=1337" maxlength="64" />
       <button id="oracle-run" type="button" aria-describedby="oracle-status">Run the attack</button>
+
+      <figure class="oracle-mech" id="oracle-mech" aria-hidden="true">
+        <figcaption class="oracle-mech-cap">
+          Live mechanism — <strong>one CBC block (16 bytes)</strong>. The attacker sweeps
+          <code>0x00…0xFF</code> in the highlighted byte of the block they control; the instant
+          padding checks out, the matching plaintext byte is known and flips green.
+        </figcaption>
+        <div class="mech-row">
+          <span class="mech-label">Cᵢ₋₁ — attacker-controlled block</span>
+          <div class="mech-track" id="mech-cprev"></div>
+        </div>
+        <div class="mech-xor" aria-hidden="true">↓ AES-decrypt(Cᵢ) ⊕ this block ↓</div>
+        <div class="mech-row">
+          <span class="mech-label">Pᵢ — recovered plaintext block</span>
+          <div class="mech-track" id="mech-plain"></div>
+        </div>
+      </figure>
+
       <p class="note">
         Deep dive into this attack on its own:
         <a href="https://systemslibrarian.github.io/crypto-lab-padding-oracle/" target="_blank" rel="noreferrer">crypto-lab-padding-oracle<span class="sr-only"> (opens in new tab)</span></a>
@@ -202,7 +266,7 @@ app.innerHTML = `
         <p id="oracle-status" class="status-line" role="status" aria-live="polite"></p>
       </div>
       <details class="explainer">
-        <summary>Why does MtE leak? (the CBC mechanics)</summary>
+        <summary>Go deeper: the CBC algebra behind that animation</summary>
         <p class="note">
           CBC decryption computes each plaintext block as
           <code>Pᵢ = D<sub>K</sub>(Cᵢ) ⊕ C<sub>ᵢ₋₁</sub></code>. The attacker can't touch
@@ -262,6 +326,11 @@ app.innerHTML = `
         <code id="tmg-secret"></code>
       </div>
       <button id="tmg-run" type="button" aria-describedby="tmg-status">Recover the tag using only timing</button>
+      <p class="note tmg-legend">
+        <strong>Bar height = elapsed time = how many bytes the compare inspected before giving up.</strong>
+        For each position the wrong guesses stop at the same short height; the one correct guess makes
+        the compare run one byte further, so its bar edges taller — and that taller bar <em>is</em> the leak.
+      </p>
       <div class="oracle-output">
         <div id="tmg-visual" class="hex" aria-hidden="true"></div>
         <p id="tmg-counter" class="query-counter" aria-hidden="true"></p>
@@ -299,6 +368,19 @@ return diff === 0;</code></pre>
         ciphertext's <strong>length</strong> — encryption hides content, not size. The attacker below
         never decrypts anything: it injects guesses next to a secret and watches the compressed size.
       </p>
+      <p class="note">
+        <strong>How the length leaks:</strong> the attacker gets one request that reflects <em>both</em>
+        the secret and their own guess into the same compressed blob. DEFLATE replaces any repeated run
+        with a short back-reference. When the guess <em>matches</em> the secret, the two lines share a
+        longer run, so DEFLATE points back further and the output is a byte or two <strong>shorter</strong>
+        — the correct next character is simply the one whose blob compresses smallest.
+      </p>
+      <div class="crime-reflect" aria-hidden="true">
+        <span class="repeat-label">what the attacker's one request reflects (guess sits next to the secret)</span>
+        <div class="crime-line"><span class="crime-fixed">Cookie: session=</span><span class="crime-secret-run" id="crime-secret-run">········</span></div>
+        <div class="crime-line"><span class="crime-fixed">X-Probe: session=</span><span class="crime-guess-run" id="crime-guess-run">········</span></div>
+        <div class="crime-sizebar" id="crime-sizebar"></div>
+      </div>
       <div class="crime-secret">
         <span class="repeat-label">secret (the attacker cannot read this directly)</span>
         <code id="crime-secret">session=…</code>
@@ -312,6 +394,13 @@ return diff === 0;</code></pre>
         <p id="crime-counter" class="query-counter" aria-hidden="true"></p>
         <p id="crime-status" class="status-line" role="status" aria-live="polite"></p>
       </div>
+      <p class="note">
+        <strong>If a run ends "incomplete":</strong> that is the attack's real texture, not the demo
+        failing. Two different characters sometimes compress to the same size (compression noise), so a
+        greedy single pass can stall. Real CRIME beats this by <em>repeating and padding</em> the guess
+        so the length gap is unambiguous, then retrying — press <strong>New secret</strong> to draw a
+        cleaner one and watch it complete.
+      </p>
       <p class="note">
         The same "each piece is fine, the seam is not" pattern also breaks
         <strong>hash-then-sign</strong> (length extension) and <strong>sign-then-encrypt</strong>
@@ -477,7 +566,7 @@ async function runExhibit1(suite: CryptoSuite, messageA: string, messageB: strin
 
   const etmTagRepeats = toHex(etmA.tag) === toHex(etmB.tag);
   renderCardBody(document.querySelector('#ex1-etm'), `
-    <p class="attacker-view">Attacker sees: <code>iv + ciphertext + tag</code>. Tag = HMAC(iv‖ciphertext).</p>
+    <p class="attacker-view">Attacker sees: <code>iv + ciphertext + tag</code>. Tag = ${gloss('HMAC', 'a MAC built from a hash (here SHA-256): a keyed fingerprint over its input')}(iv‖ciphertext) — the tag is a fingerprint of the <em>ciphertext</em>, not the plaintext.</p>
     ${repeatRow('tag', etmA.tag, etmB.tag)}
     ${etmTagRepeats
       ? badge('warn', 'tag repeated (unexpected)')
@@ -487,7 +576,7 @@ async function runExhibit1(suite: CryptoSuite, messageA: string, messageB: strin
 
   const eamTagRepeats = toHex(eamA.tag) === toHex(eamB.tag);
   renderCardBody(document.querySelector('#ex1-eam'), `
-    <p class="attacker-view">Attacker sees: <code>iv + ciphertext + tag</code>. Tag = HMAC(plaintext).</p>
+    <p class="attacker-view">Attacker sees: <code>iv + ciphertext + tag</code>. Tag = ${gloss('HMAC', 'a MAC built from a hash (here SHA-256): a keyed fingerprint over its input')}(plaintext) — equal plaintexts give the <em>same</em> tag.</p>
     ${repeatRow('tag', eamA.tag, eamB.tag)}
     ${eamTagRepeats
       ? badge('danger', 'identical tag → attacker learns A and B are the same message')
@@ -497,7 +586,7 @@ async function runExhibit1(suite: CryptoSuite, messageA: string, messageB: strin
 
   const aeadTagRepeats = toHex(aeadA.tag) === toHex(aeadB.tag);
   renderCardBody(document.querySelector('#ex1-aead'), `
-    <p class="attacker-view">Attacker sees: <code>nonce + ciphertext + tag</code>, all from one primitive.</p>
+    <p class="attacker-view">Attacker sees: <code>${gloss('nonce', 'number used once: a fresh value so identical messages encrypt differently')} + ciphertext + tag</code>, all from one primitive.</p>
     ${repeatRow('tag', aeadA.tag, aeadB.tag)}
     ${aeadTagRepeats
       ? badge('warn', 'tag repeated (reused nonce?)')
@@ -546,6 +635,77 @@ const oracleMessage = document.querySelector<HTMLInputElement>('#oracle-message'
 const oracleVisual = document.querySelector<HTMLElement>('#oracle-visual');
 const oracleCounter = document.querySelector<HTMLElement>('#oracle-counter');
 const oracleStatus = document.querySelector<HTMLElement>('#oracle-status');
+const oracleMech = document.querySelector<HTMLElement>('#oracle-mech');
+const mechCprev = document.querySelector<HTMLElement>('#mech-cprev');
+const mechPlain = document.querySelector<HTMLElement>('#mech-plain');
+
+/** Render the 16-byte C(i-1) and P(i) tracks of the live mechanism diagram. */
+function initMechBlock(): void {
+  if (mechCprev) {
+    mechCprev.innerHTML = Array.from({ length: 16 }, () =>
+      `<span class="mech-byte" role="presentation">··</span>`,
+    ).join('');
+  }
+  if (mechPlain) {
+    mechPlain.innerHTML = Array.from({ length: 16 }, () =>
+      `<span class="mech-byte mech-pending">·</span>`,
+    ).join('');
+  }
+}
+
+/**
+ * Animate one recovered byte: sweep the attacker's controlled byte of C(i-1)
+ * (0x00..0xFF, sampled) while it is highlighted, then settle on the value that
+ * fired "padding OK" and flip the matching plaintext byte green. This binds the
+ * running attack to the diagram so the mechanism plays alongside the recovery.
+ */
+async function animateMechByte(
+  byteIndex: number,
+  guess: number,
+  plainByte: number,
+  animate: boolean,
+): Promise<void> {
+  const cprevCells = mechCprev?.children;
+  const plainCells = mechPlain?.children;
+  const cprevCell = cprevCells?.[byteIndex] as HTMLElement | undefined;
+  const plainCell = plainCells?.[byteIndex] as HTMLElement | undefined;
+  if (!cprevCell || !plainCell) return;
+
+  // Clear any prior sweep highlight.
+  for (const c of Array.from(cprevCells ?? [])) (c as HTMLElement).classList.remove('mech-sweeping');
+
+  const hex = (n: number) => n.toString(16).padStart(2, '0');
+  const glyph = plainByte >= 0x20 && plainByte <= 0x7e ? String.fromCharCode(plainByte) : '·';
+
+  if (animate) {
+    cprevCell.classList.add('mech-sweeping');
+    // Sample the 0x00..0xFF sweep so it reads as "trying every value".
+    for (let v = 0; v <= 0xff; v += 0x22) {
+      cprevCell.textContent = hex(v);
+      await new Promise((resolve) => setTimeout(resolve, 8));
+    }
+    cprevCell.classList.remove('mech-sweeping');
+  }
+  cprevCell.textContent = hex(guess);
+  cprevCell.classList.add('mech-locked');
+  plainCell.textContent = glyph;
+  plainCell.classList.remove('mech-pending');
+  plainCell.classList.add('mech-hit');
+}
+
+/**
+ * Freeze the mechanism diagram on one specific CBC block's recovered bytes.
+ * Called at the end of the run to settle on block 0 — the readable message
+ * block — rather than the trailing tag/padding block full of non-printables.
+ */
+function freezeMechBlock(steps: OracleStep[], blockIndex: number): void {
+  initMechBlock();
+  for (const step of steps) {
+    if (step.blockIndex === blockIndex) {
+      void animateMechByte(step.byteIndex, step.guess, step.recoveredByte, false);
+    }
+  }
+}
 
 function renderCounter(el: HTMLElement | null, count: number, unit: string): void {
   if (el) {
@@ -587,15 +747,19 @@ if (oracleRun && oracleMode && oracleMessage && oracleVisual && oracleStatus) {
         return;
       }
 
+      if (oracleMech) oracleMech.classList.remove('mech-idle');
+
       if (mode === 'mte') {
         const secretLen = utf8(msg).length;
         const packet = await sealMtE(suite, msg);
         const oracle = createMtEPaddingOracle(suite);
         oracleStatus.textContent = 'Running padding-oracle attack against MtE…';
         oracleVisual.innerHTML = '';
+        initMechBlock();
 
         const result = await recoverMtEPlaintext(packet, oracle);
         const buf: (number | null)[] = new Array(result.recovered.length).fill(null);
+        let shownBlock = -1;
 
         if (prefersReducedMotion) {
           for (const step of result.steps) {
@@ -605,13 +769,22 @@ if (oracleRun && oracleMode && oracleMessage && oracleVisual && oracleStatus) {
           renderCounter(oracleCounter, result.queries, 'oracle queries');
         } else {
           for (const step of result.steps) {
+            // A new CBC block is now under attack: reset the single-block diagram.
+            if (step.blockIndex !== shownBlock) {
+              shownBlock = step.blockIndex;
+              initMechBlock();
+            }
             buf[step.blockIndex * 16 + step.byteIndex] = step.recoveredByte;
+            await animateMechByte(step.byteIndex, step.guess, step.recoveredByte, true);
             oracleVisual.innerHTML = renderRecovery(buf, secretLen);
             renderCounter(oracleCounter, step.queriesSoFar, 'oracle queries');
-            await new Promise((resolve) => setTimeout(resolve, 12));
           }
           renderCounter(oracleCounter, result.queries, 'oracle queries');
         }
+
+        // Settle the diagram on block 0 — the readable message block — so the
+        // final frozen frame shows recovered plaintext, not tag/padding bytes.
+        freezeMechBlock(result.steps, 0);
 
         oracleStatus.className = 'status-line verdict-danger';
         oracleStatus.innerHTML =
@@ -621,6 +794,10 @@ if (oracleRun && oracleMode && oracleMessage && oracleVisual && oracleStatus) {
       }
 
       // EtM: tamper, then watch the MAC reject it before any decryption.
+      // No recovery happens, so blank the mechanism block rather than leaving a
+      // stale MtE animation implying a leak.
+      initMechBlock();
+      if (oracleMech) oracleMech.classList.add('mech-idle');
       const packet = await sealEtM(suite, msg);
       const blocked = await etmRejectsTampering(suite, packet);
       oracleVisual.innerHTML =
@@ -642,8 +819,12 @@ if (oracleRun && oracleMode && oracleMessage && oracleVisual && oracleStatus) {
   });
 }
 
+// Show the mechanism diagram in an idle (all-pending) state before the first run.
+initMechBlock();
+if (oracleMech) oracleMech.classList.add('mech-idle');
+
 // ---------------------------------------------------------------------------
-// Exhibit 3 — CRIME: recover a secret from compressed length alone.
+// Exhibit 4 — CRIME: recover a secret from compressed length alone.
 // ---------------------------------------------------------------------------
 
 const crimeRun = document.querySelector<HTMLButtonElement>('#crime-run');
@@ -652,6 +833,9 @@ const crimeSecretEl = document.querySelector<HTMLElement>('#crime-secret');
 const crimeVisual = document.querySelector<HTMLElement>('#crime-visual');
 const crimeCounter = document.querySelector<HTMLElement>('#crime-counter');
 const crimeStatus = document.querySelector<HTMLElement>('#crime-status');
+const crimeSecretRun = document.querySelector<HTMLElement>('#crime-secret-run');
+const crimeGuessRun = document.querySelector<HTMLElement>('#crime-guess-run');
+const crimeSizebar = document.querySelector<HTMLElement>('#crime-sizebar');
 
 let crimeRunning = false;
 let crimeSecret = `session=${randomSecret(8)}`;
@@ -675,6 +859,34 @@ function renderCrimeProgress(recovered: string): void {
   crimeVisual.innerHTML = `<div class="recovery">session=<span class="recovery-text">${out}</span></div>`;
 }
 
+/**
+ * Update the "reflected request" panel: the secret run (masked, revealing the
+ * recovered prefix) above the guess run, with the matching prefix highlighted so
+ * the shared run DEFLATE back-references is visible. `bestLength` drives a small
+ * bar showing that the winning guess's blob is the shortest — the length leak.
+ */
+function renderCrimeReflect(recovered: string, target: string, bestLength: number | null): void {
+  const mask = (s: string, matched: number) => {
+    let html = '';
+    for (let i = 0; i < s.length; i += 1) {
+      const cls = i < matched ? 'crime-run-match' : 'crime-run-dot';
+      const ch = i < matched ? escapeHtml(s[i]) : '·';
+      html += `<span class="${cls}">${ch}</span>`;
+    }
+    return html;
+  };
+  const matched = recovered.length;
+  if (crimeSecretRun) crimeSecretRun.innerHTML = mask(target, matched);
+  if (crimeGuessRun) crimeGuessRun.innerHTML = mask(recovered.padEnd(target.length, '·'), matched);
+  if (crimeSizebar && bestLength !== null) {
+    // Shorter blob == stronger match. Show the compressed size as a labelled bar.
+    crimeSizebar.innerHTML =
+      `<span class="crime-size-label">winning guess compressed to</span>` +
+      `<span class="crime-size-val">${bestLength} bytes</span>` +
+      `<span class="crime-size-note">(a match shares a longer run → shorter output)</span>`;
+  }
+}
+
 if (crimeRun && crimeVisual && crimeStatus) {
   crimeRun.addEventListener('click', async () => {
     if (crimeRunning) return;
@@ -690,9 +902,11 @@ if (crimeRun && crimeVisual && crimeStatus) {
       const target = crimeSecret.replace(/^session=/, '');
       crimeStatus.textContent = 'Recovering the secret from compressed length only…';
       renderCrimeProgress('');
+      renderCrimeReflect('', target, null);
       if (crimeCounter) crimeCounter.innerHTML = '';
       const result = await crimeRecover(target, CRIME_ALPHABET, async (step) => {
         renderCrimeProgress(step.recovered);
+        renderCrimeReflect(step.recovered, target, step.bestLength);
         renderCounter(crimeCounter, step.queriesSoFar, 'length measurements');
         if (!prefersReducedMotion) {
           await new Promise((resolve) => setTimeout(resolve, 90));
@@ -703,8 +917,8 @@ if (crimeRun && crimeVisual && crimeStatus) {
       const success = result.recovered === target;
       crimeStatus.className = success ? 'status-line verdict-danger' : 'status-line';
       crimeStatus.innerHTML = success
-        ? `✗ Full secret recovered in <span class="stat">${result.queries.toLocaleString()}</span> length measurements — no decryption, just compressed size.`
-        : 'Recovery was incomplete (compression noise). Try “New secret”.';
+        ? `✗ Full secret recovered in <span class="stat">${result.queries.toLocaleString()}</span> length measurements — no decryption, just compressed size. Each correct character made its blob compress <strong>shorter</strong>.`
+        : 'Recovery stalled on compression noise — two characters tied on size this pass (an expected CRIME texture, not a demo bug). Real CRIME repeats and pads the guess to break the tie; press “New secret” to draw a cleaner one.';
     } catch (e) {
       crimeStatus.className = 'status-line';
       crimeStatus.textContent = 'Error: could not run the CRIME demo. See console for details.';
@@ -723,6 +937,8 @@ if (crimeReset) {
     crimeSecret = `session=${randomSecret(8)}`;
     renderCrimeSecret();
     if (crimeVisual) crimeVisual.innerHTML = '';
+    renderCrimeReflect('', crimeSecret.replace(/^session=/, ''), null);
+    if (crimeSizebar) crimeSizebar.innerHTML = '';
     if (crimeCounter) crimeCounter.innerHTML = '';
     if (crimeStatus) {
       crimeStatus.className = 'status-line';
@@ -730,6 +946,9 @@ if (crimeReset) {
     }
   });
 }
+
+// Seed the reflected-request panel so its structure is visible before the run.
+renderCrimeReflect('', crimeSecret.replace(/^session=/, ''), null);
 
 // ---------------------------------------------------------------------------
 // Exhibit 3 — timing side-channel: recover a tag from comparison time alone.
@@ -753,17 +972,43 @@ function renderTmgSecret(): void {
 }
 renderTmgSecret();
 
-function renderTmgProgress(recovered: (number | null)[], comparisons: (number | null)[]): string {
+interface TmgRacing {
+  position: number;
+  /** 'losing' shows the wrong guesses' short bar; 'winning' the taller bar. */
+  phase: 'losing' | 'winning';
+}
+
+function renderTmgProgress(
+  recovered: (number | null)[],
+  comparisons: (number | null)[],
+  racing?: TmgRacing,
+): string {
+  const total = tmgSecret.length;
   const cells = recovered.map((b, i) => {
     const hex = b === null
       ? '<span class="pending">··</span>'
       : `<span class="recovered">${b.toString(16).padStart(2, '0')}</span>`;
-    // Bar height ∝ how long the winning guess's compare ran — the timing tell.
-    const c = comparisons[i];
-    const pct = c === null ? 0 : Math.round((c / tmgSecret.length) * 100);
+    // Bar height ∝ how long the compare ran — the timing tell. During the race we
+    // first draw the wrong guesses' short bar, then let the winner edge taller.
+    let c = comparisons[i];
+    let fillClass = 'tmg-bar-fill';
+    if (racing && racing.position === i) {
+      const winning = comparisons[i] ?? 1;
+      c = racing.phase === 'losing' ? Math.max(winning - 1, 0) : winning;
+      fillClass += racing.phase === 'losing' ? ' tmg-bar-losing' : ' tmg-bar-winning';
+    }
+    const pct = c === null ? 0 : Math.round((c / total) * 100);
+    // Numeric readout: comparisons ran -> "how many leading bytes are right".
+    let readout = '<span class="tmg-readout-empty">·</span>';
+    if (racing && racing.position === i && racing.phase === 'losing') {
+      readout = `<span class="tmg-readout-lose">wrong: stops at ${Math.max((comparisons[i] ?? 1) - 1, 0)}/${total}</span>`;
+    } else if (c !== null && b !== null) {
+      readout = `<span class="tmg-readout-win">ran ${c}/${total} → longest → right</span>`;
+    }
     return `<div class="tmg-cell">
-      <div class="tmg-bar"><div class="tmg-bar-fill" style="height:${pct}%"></div></div>
+      <div class="tmg-bar"><div class="${fillClass}" style="height:${pct}%"></div></div>
       <code>${hex}</code>
+      <span class="tmg-readout">${readout}</span>
     </div>`;
   }).join('');
   return `<div class="tmg-track">${cells}</div>`;
@@ -790,11 +1035,22 @@ if (tmgRun && tmgMode && tmgVisual && tmgStatus) {
       const result = await recoverViaTiming(tmgSecret, compare, async (step) => {
         recovered[step.position] = step.byte;
         comparisons[step.position] = step.comparisons;
-        tmgVisual.innerHTML = renderTmgProgress(recovered, comparisons);
-        renderCounter(tmgCounter, step.queriesSoFar, 'timed guesses');
-        if (!prefersReducedMotion) {
-          await new Promise((resolve) => setTimeout(resolve, 55));
+        if (prefersReducedMotion) {
+          tmgVisual.innerHTML = renderTmgProgress(recovered, comparisons);
+        } else {
+          // Race: draw the losing guesses' short bar first, then let the winner rise.
+          tmgVisual.innerHTML = renderTmgProgress(recovered, comparisons, {
+            position: step.position,
+            phase: 'losing',
+          });
+          await new Promise((resolve) => setTimeout(resolve, 130));
+          tmgVisual.innerHTML = renderTmgProgress(recovered, comparisons, {
+            position: step.position,
+            phase: 'winning',
+          });
+          await new Promise((resolve) => setTimeout(resolve, 90));
         }
+        renderCounter(tmgCounter, step.queriesSoFar, 'timed guesses');
       });
       renderCounter(tmgCounter, result.queries, 'timed guesses');
 
@@ -947,8 +1203,8 @@ if (chkRun && chkAead && chkEtm && chkOrder && chkOutput) {
 
     if (usesAead) {
       kind = 'safe';
-      verdict = 'Safe by design';
-      reason = 'A single AEAD primitive authenticates and decrypts together, so composition ordering simply cannot go wrong here.';
+      verdict = 'Safe by design — with one nonce caveat';
+      reason = 'A single AEAD primitive authenticates and decrypts together, so composition ordering cannot go wrong here. The one remaining seam is nonce discipline: reuse a nonce with the same key (especially in AES-GCM) and both confidentiality and integrity collapse. Use a counter or random 96-bit nonce and never repeat it.';
     } else if (order === 'etm' && usesEtm) {
       kind = 'warn';
       verdict = 'Acceptable with care';

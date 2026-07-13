@@ -553,6 +553,159 @@ button:disabled {
   stroke: var(--focus);
 }
 
+/* Exhibit 2 — live padding-oracle mechanism diagram */
+.oracle-mech {
+  margin: 0;
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.7rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 0.7rem;
+  background: color-mix(in srgb, var(--panel) 75%, var(--bg) 25%);
+}
+
+.oracle-mech-cap {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.oracle-mech-cap code,
+.mech-xor code {
+  font-family: 'IBM Plex Mono', 'Consolas', 'Menlo', monospace;
+  color: var(--text);
+}
+
+.mech-row {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.mech-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.mech-track {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.mech-byte {
+  min-width: 1.7rem;
+  padding: 0.2rem 0.15rem;
+  text-align: center;
+  border: 1px solid var(--line);
+  border-radius: 0.3rem;
+  background: color-mix(in srgb, var(--panel) 60%, var(--bg) 40%);
+  font-family: 'IBM Plex Mono', 'Consolas', 'Menlo', monospace;
+  font-size: 0.8rem;
+  color: var(--text);
+}
+
+.mech-byte.mech-pending {
+  color: var(--pending);
+}
+
+/* Byte the attacker is currently sweeping (0x00..0xFF). */
+.mech-byte.mech-sweeping {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 16%, var(--panel));
+  font-weight: 700;
+}
+
+/* C(i-1) byte locked to the value that fired "padding OK". */
+.mech-byte.mech-locked {
+  border-color: var(--warn);
+  color: var(--warn);
+  font-weight: 700;
+}
+
+/* Plaintext byte recovered the instant padding checked out. */
+.mech-byte.mech-hit {
+  border-color: var(--safe);
+  color: var(--safe);
+  background: color-mix(in srgb, var(--safe) 16%, var(--panel));
+  font-weight: 700;
+}
+
+.mech-xor {
+  font-size: 0.78rem;
+  color: var(--muted);
+  text-align: center;
+  font-family: 'IBM Plex Mono', 'Consolas', 'Menlo', monospace;
+}
+
+.oracle-mech.mech-idle .mech-byte {
+  opacity: 0.75;
+}
+
+@media (max-width: 600px) {
+  .mech-byte {
+    min-width: 1.5rem;
+    font-size: 0.72rem;
+  }
+}
+
+/* Term glosses — plain-language on-ramp for jargon */
+.gloss {
+  border-bottom: 1px dotted currentColor;
+  cursor: help;
+}
+
+.gloss:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 0.2rem;
+}
+
+/* "You are here" four-orders spectrum */
+.spectrum-list {
+  margin: 0;
+  padding-left: 1.2rem;
+  display: grid;
+  gap: 0.35rem;
+  color: var(--text);
+}
+
+.spectrum-tag {
+  display: inline-block;
+  padding: 0.05rem 0.4rem;
+  margin-right: 0.35rem;
+  border-radius: 0.3rem;
+  border: 1px solid currentColor;
+  font-family: 'IBM Plex Mono', 'Consolas', 'Menlo', monospace;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.spectrum-tag.spectrum-danger {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+}
+
+.spectrum-tag.spectrum-warn {
+  color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 12%, transparent);
+}
+
+.spectrum-tag.spectrum-safe {
+  color: var(--safe);
+  background: color-mix(in srgb, var(--safe) 12%, transparent);
+}
+
+.new-here {
+  padding: 0.55rem 0.7rem;
+  border: 1px dashed var(--line);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--focus) 6%, transparent);
+  color: var(--text);
+}
+
 /* CRIME exhibit */
 .crime-secret {
   display: grid;
@@ -568,6 +721,60 @@ button:disabled {
   font-size: 0.95rem;
   color: var(--text);
   word-break: break-all;
+}
+
+/* CRIME — reflected-request panel showing the two strings + size leak */
+.crime-reflect {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 0.6rem;
+  background: color-mix(in srgb, var(--panel) 75%, var(--bg) 25%);
+}
+
+.crime-line {
+  font-family: 'IBM Plex Mono', 'Consolas', 'Menlo', monospace;
+  font-size: 0.85rem;
+  color: var(--text);
+  word-break: break-all;
+}
+
+.crime-fixed {
+  color: var(--muted);
+}
+
+.crime-run-match {
+  color: var(--safe);
+  font-weight: 700;
+  background: color-mix(in srgb, var(--safe) 16%, transparent);
+}
+
+.crime-run-dot {
+  color: var(--pending);
+}
+
+.crime-sizebar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem;
+  font-family: 'IBM Plex Mono', 'Consolas', 'Menlo', monospace;
+  font-size: 0.78rem;
+}
+
+.crime-size-label {
+  color: var(--muted);
+}
+
+.crime-size-val {
+  color: var(--danger);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.crime-size-note {
+  color: var(--muted);
 }
 
 /* Exhibit 1 — two-message pair */
@@ -659,6 +866,44 @@ button:disabled {
 
 .tmg-cell .pending {
   color: var(--pending);
+}
+
+/* Timing exhibit — legend + per-bar numeric readout */
+.tmg-legend {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.tmg-legend strong,
+.tmg-legend em {
+  color: var(--text);
+}
+
+.tmg-readout {
+  font-family: 'IBM Plex Mono', 'Consolas', 'Menlo', monospace;
+  font-size: 0.62rem;
+  line-height: 1.2;
+  max-width: 4.5rem;
+  text-align: center;
+}
+
+.tmg-readout-empty {
+  color: var(--pending);
+}
+
+.tmg-readout-lose {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.tmg-readout-win {
+  color: var(--safe);
+  font-weight: 700;
+}
+
+/* The wrong guesses' short bar reads as a "false start" in the race. */
+.tmg-bar-fill.tmg-bar-losing {
+  background: color-mix(in srgb, var(--danger) 55%, var(--muted));
 }
 
 /* Constant-time snippet in the explainer */

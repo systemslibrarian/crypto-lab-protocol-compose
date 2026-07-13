@@ -17,7 +17,7 @@ crypto-lab-protocol-compose is a browser demo of protocol composition safety usi
 
 **[systemslibrarian.github.io/crypto-lab-protocol-compose](https://systemslibrarian.github.io/crypto-lab-protocol-compose/)**
 
-The demo lets you encrypt a live message across composition modes and inspect resulting ciphertext/tag outputs. You can seal two messages side by side to surface the Encrypt-and-MAC equality leak, execute the padding oracle runner, recover an HMAC tag from a naive comparison's timing (Lucky Thirteen), step through the TLS evolution walkthrough, and compute risk with the protocol safety checklist. Each control is tied to real WebCrypto operations rather than simulated arithmetic, and the current configuration is encoded in the URL so a specific setup can be shared as a link.
+The demo lets you encrypt a live message across composition modes and inspect resulting ciphertext/tag outputs. You can seal two messages side by side to surface the Encrypt-and-MAC equality leak, execute the padding oracle runner — whose live CBC mechanism diagram lights up the attacker-controlled byte and flips the matching plaintext byte green in step with the recovery — recover an HMAC tag from a naive comparison's timing (Lucky Thirteen) with a per-bar readout equating comparison count to elapsed time, watch the CRIME length-leak recover a session secret from its two reflected request lines, step through the TLS evolution walkthrough, and compute risk with the protocol safety checklist. Newcomer on-ramp: jargon terms (MAC, IV/nonce, AEAD, padding oracle) carry a one-line plain-language gloss on hover/focus, a "four orders as a spectrum" map frames each attack before you run it, and the AEAD exhibit is honest that AEAD only *moves* the footgun to nonce reuse. Each control is tied to real WebCrypto operations rather than simulated arithmetic, and the current configuration is encoded in the URL so a specific setup can be shared as a link.
 
 ## What Can Go Wrong
 
@@ -26,6 +26,7 @@ The demo lets you encrypt a live message across composition modes and inspect re
 - TLS CBC timing side-channel (Lucky Thirteen): small processing differences during CBC record handling leak information about plaintext and padding validity.
 - TLS 1.0 BEAST-era CBC composition weakness: CBC record chaining and composition details enabled practical chosen-plaintext attacks.
 - Implementation pitfall in verification order: checking authenticity after decryption recreates oracle surfaces even if AES and HMAC are individually correct.
+- AEAD nonce reuse: switching to AES-GCM removes the composition seam but adds one of its own — repeating a nonce under the same key collapses both confidentiality and integrity (see the linked nonce-guard demo).
 
 ## Real-World Usage
 
