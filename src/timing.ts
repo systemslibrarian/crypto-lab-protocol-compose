@@ -1,4 +1,4 @@
-// Timing side-channels (the Lucky Thirteen family). Even a *correct* composition
+// Timing side-channels in MAC verification. Even a *correct* composition
 // order breaks if the tag comparison itself leaks. A byte-by-byte compare that
 // returns as soon as it finds a mismatch runs in time proportional to the length
 // of the correct prefix — so how long a rejection takes tells an attacker how
@@ -21,7 +21,9 @@ export type CompareFn = (a: Uint8Array, b: Uint8Array) => CompareTrace;
 /**
  * Vulnerable compare: bails at the first mismatching byte. The comparison count
  * (and thus the running time) leaks the length of the correct prefix. This is the
- * bug behind Lucky Thirteen and naive MAC/tag comparison timing attacks.
+ * bug behind naive MAC/tag comparison timing attacks. (It is NOT Lucky Thirteen:
+ * AlFardan-Paterson 2013 timed the MAC *computation* over CBC padding removal to
+ * recover plaintext, not the tag comparison, and it recovers no tag.)
  */
 export function naiveEqual(a: Uint8Array, b: Uint8Array): CompareTrace {
   if (a.length !== b.length) {

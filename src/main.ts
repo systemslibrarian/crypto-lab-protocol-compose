@@ -313,7 +313,9 @@ app.innerHTML = `
         Even Encrypt-then-MAC breaks if the tag check itself leaks. A comparison that
         <strong>returns as soon as it hits a wrong byte</strong> runs longer the more leading bytes
         are correct — so the time a rejection takes reveals how much of a forged tag is right, and the
-        whole tag falls out one byte at a time. That seam is <strong>Lucky Thirteen</strong>. The
+        whole tag falls out one byte at a time. That seam is a
+        <strong>non-constant-time tag comparison</strong> — a different bug from Lucky Thirteen,
+        which timed the MAC <em>computation</em> during CBC padding removal to recover plaintext. The
         attacker below never reads the tag; it only watches how long the compare runs.
       </p>
       <label for="tmg-mode">Tag comparison under attack</label>
@@ -403,7 +405,7 @@ return diff === 0;</code></pre>
       </p>
       <p class="note">
         The same "each piece is fine, the seam is not" pattern also breaks
-        <strong>hash-then-sign</strong> (length extension) and <strong>sign-then-encrypt</strong>
+        <strong>secret-prefix MACs</strong>, <code>H(key ‖ message)</code> (length extension), and <strong>sign-then-encrypt</strong>
         (a signed plaintext can be peeled off and forwarded by someone else).
       </p>
     </section>
