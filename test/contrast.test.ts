@@ -5,10 +5,12 @@ import { describe, expect, it } from 'vitest';
 const DARK = {
   bg: '#08111d', panel: '#0f1f35', text: '#ecf2f9', muted: '#b7c7da',
   focus: '#5b9bd5', safe: '#4ec97a', warn: '#e3b341', danger: '#ff6b6b',
+  lineControl: '#5e7ba0',
 };
 const LIGHT = {
   bg: '#eaf1f8', panel: '#ffffff', text: '#1a2d42', muted: '#4c647c',
   focus: '#2563eb', safe: '#136b2f', warn: '#8a5a00', danger: '#bd0e22',
+  lineControl: '#6b81a5',
 };
 
 type Rgb = [number, number, number];
@@ -41,6 +43,7 @@ function contrast(fg: Rgb | string, bg: Rgb | string): number {
 }
 
 const AA = 4.5; // normal text
+const NONTEXT = 3; // WCAG 1.4.11 — UI component boundaries
 
 for (const [name, t] of [['dark', DARK], ['light', LIGHT]] as const) {
   describe(`contrast (${name} theme) meets WCAG AA`, () => {
@@ -60,5 +63,11 @@ for (const [name, t] of [['dark', DARK], ['light', LIGHT]] as const) {
     it('recovered (safe) text on hex output', () => expect(contrast(t.safe, hexBg)).toBeGreaterThanOrEqual(AA));
     it('danger verdict text on panel', () => expect(contrast(t.danger, t.panel)).toBeGreaterThanOrEqual(AA));
     it('safe verdict text on panel', () => expect(contrast(t.safe, t.panel)).toBeGreaterThanOrEqual(AA));
+
+    // Text-entry control borders (input/select/textarea use --line-control):
+    // the boundary must clear 3:1 against the control fill (the panel) and
+    // against the page background it can sit over.
+    it('control border on panel', () => expect(contrast(t.lineControl, t.panel)).toBeGreaterThanOrEqual(NONTEXT));
+    it('control border on page bg', () => expect(contrast(t.lineControl, t.bg)).toBeGreaterThanOrEqual(NONTEXT));
   });
 }

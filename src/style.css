@@ -5,6 +5,9 @@
   --text: #ecf2f9;
   --muted: #b7c7da;
   --line: #294666;
+  /* text-entry control boundary — WCAG 1.4.11 needs >=3:1; this reaches 3.8:1
+     on the --panel fill and more on the darker page gradient behind it. */
+  --line-control: #5e7ba0;
   --focus: #5b9bd5;
   --safe: #4ec97a;
   --warn: #e3b341;
@@ -21,6 +24,9 @@
   --text: #1a2d42;
   --muted: #4c647c;
   --line: #a9bfd6;
+  /* text-entry control boundary — 4.0:1 on the white --panel fill, 3.5:1 on
+     the page gradient (was --line #a9bfd6, 1.9:1). */
+  --line-control: #6b81a5;
   --focus: #2563eb;
   --safe: #136b2f;
   --warn: #8a5a00;
@@ -178,6 +184,9 @@ select {
   padding: 0.55rem;
   width: 100%;
   max-width: 100%;
+  /* Form fields are found by their boundary, so it must clear WCAG 1.4.11's
+     3:1 — buttons keep the softer --line (their fill + label carry them). */
+  border-color: var(--line-control);
 }
 
 textarea {
