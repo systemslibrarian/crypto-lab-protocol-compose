@@ -625,6 +625,23 @@ if (ex1Run && ex1MessageA && ex1MessageB) {
       ex1Run.click();
     });
   }
+
+  // Retract a finished seal as soon as either message is edited. The cards and
+  // the hint are verdicts about the text that was actually sealed, so leaving
+  // them standing claimed "A and B are identical — watch which mode gives it
+  // away" (and E&M's "identical tag" risk badge) over two textareas the reader
+  // could see were different. Exhibit 3 already clears on a config change.
+  const retractSeal = (): void => {
+    for (const id of ['#ex1-mte', '#ex1-etm', '#ex1-eam', '#ex1-aead']) {
+      renderCardBody(document.querySelector<HTMLElement>(id), '');
+    }
+    const hint = document.querySelector<HTMLElement>('#ex1-hint');
+    if (hint) {
+      hint.textContent = 'Messages changed — press “Seal both in every mode” to re-seal.';
+    }
+  };
+  ex1MessageA.addEventListener('input', retractSeal);
+  ex1MessageB.addEventListener('input', retractSeal);
 }
 
 // ---------------------------------------------------------------------------
@@ -820,6 +837,30 @@ if (oracleRun && oracleMode && oracleMessage && oracleVisual && oracleStatus) {
     }
   });
 }
+
+/**
+ * Retract a finished oracle run when the configuration it ran against changes.
+ * Without this, "✗ MtE broken: full plaintext recovered …" — plus the recovered
+ * plaintext, the query count, and the mechanism diagram frozen on the stolen
+ * bytes — stayed on screen after the reader switched the composition select to
+ * EtM (labelled "safe") or edited the secret message, asserting a result for a
+ * configuration the page was no longer showing. Exhibit 3 clears on mode change
+ * and Exhibit 4 clears on "New secret"; this brings Exhibit 2 in line.
+ */
+function resetOracleOutput(): void {
+  if (attackRunning) return;
+  if (oracleVisual) oracleVisual.textContent = 'Press “Run the attack” to begin.';
+  if (oracleCounter) oracleCounter.innerHTML = '';
+  if (oracleStatus) {
+    oracleStatus.className = 'status-line';
+    oracleStatus.textContent = '';
+  }
+  initMechBlock();
+  if (oracleMech) oracleMech.classList.add('mech-idle');
+}
+
+oracleMode?.addEventListener('change', resetOracleOutput);
+oracleMessage?.addEventListener('input', resetOracleOutput);
 
 // Show the mechanism diagram in an idle (all-pending) state before the first run.
 initMechBlock();
