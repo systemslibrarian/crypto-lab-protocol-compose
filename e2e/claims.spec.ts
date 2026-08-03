@@ -210,7 +210,16 @@ test('editing a message retracts the seal instead of leaving a stale verdict', a
 // ---------------------------------------------------------------------------
 
 test.describe('padding oracle (reduced motion)', () => {
-  test.use({ reducedMotion: 'reduce' });
+  // MUST be emulateMedia: on Playwright 1.61.1 test.use({ reducedMotion }) never
+  // reaches the page (matchMedia still reports false), so the animations these
+  // assertions are meant to skip kept running at full speed.
+  test.beforeEach(async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    expect(
+      await page.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches),
+      'reduced-motion emulation did not reach the page',
+    ).toBe(true);
+  });
 
   test('MtE hands back exactly the message that was typed, and the counts add up', async ({ page }) => {
     await page.locator('#oracle-message').fill('pay=mallory;amt=99');
@@ -343,7 +352,16 @@ test('the mechanism diagram sweeps the attacked byte while the attack runs', asy
 // ---------------------------------------------------------------------------
 
 test.describe('timing side-channel (reduced motion)', () => {
-  test.use({ reducedMotion: 'reduce' });
+  // MUST be emulateMedia: on Playwright 1.61.1 test.use({ reducedMotion }) never
+  // reaches the page (matchMedia still reports false), so the animations these
+  // assertions are meant to skip kept running at full speed.
+  test.beforeEach(async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    expect(
+      await page.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches),
+      'reduced-motion emulation did not reach the page',
+    ).toBe(true);
+  });
 
   test('the naive compare gives up the whole tag, and the bars are the leak', async ({ page }) => {
     expect(await text(page, '#tmg-secret')).toMatch(/^(?:·· ){7}··$/); // 8 masked bytes
@@ -420,7 +438,16 @@ test.describe('timing side-channel (reduced motion)', () => {
 // ---------------------------------------------------------------------------
 
 test.describe('CRIME length leak (reduced motion)', () => {
-  test.use({ reducedMotion: 'reduce' });
+  // MUST be emulateMedia: on Playwright 1.61.1 test.use({ reducedMotion }) never
+  // reaches the page (matchMedia still reports false), so the animations these
+  // assertions are meant to skip kept running at full speed.
+  test.beforeEach(async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    expect(
+      await page.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches),
+      'reduced-motion emulation did not reach the page',
+    ).toBe(true);
+  });
 
   test('the session secret falls out of the compressed length alone', async ({ page }) => {
     const secret = (await text(page, '#crime-secret')).replace(/^session=/, '');
