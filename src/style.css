@@ -5,8 +5,10 @@
   --text: #ecf2f9;
   --muted: #b7c7da;
   --line: #294666;
-  /* text-entry control boundary — WCAG 1.4.11 needs >=3:1; this reaches 3.8:1
-     on the --panel fill and more on the darker page gradient behind it. */
+  /* Interactive control boundary — WCAG 1.4.11 needs >=3:1; this reaches 3.73:1
+     on the --panel fill and more on the darker page gradient behind it. Every
+     control uses it, not only the text-entry ones: see the note on the shared
+     `textarea, input, select, button` rule. */
   --line-control: #5e7ba0;
   --focus: #5b9bd5;
   --safe: #4ec97a;
@@ -24,7 +26,7 @@
   --text: #1a2d42;
   --muted: #4c647c;
   --line: #a9bfd6;
-  /* text-entry control boundary — 4.0:1 on the white --panel fill, 3.5:1 on
+  /* Interactive control boundary — 4.00:1 on the white --panel fill, 3.5:1 on
      the page gradient (was --line #a9bfd6, 1.9:1). */
   --line-control: #6b81a5;
   --focus: #2563eb;
@@ -165,11 +167,25 @@ label {
   font-weight: 600;
 }
 
+/* Every control is found by its boundary, so every control's boundary has to
+   clear WCAG 1.4.11's 3:1 — buttons included.
+
+   This rule used to set `var(--line)` here and then restore `--line-control`
+   for `textarea, input, select` only, on the stated reasoning that "buttons
+   keep the softer --line (their fill + label carry them)". That reasoning is
+   false on this page and was measured to be false: a button's `background` is
+   `var(--panel)`, and every button on this page sits inside a `.panel` whose
+   background is ALSO `var(--panel)`, so the fill delineates nothing at all
+   (1.00:1) and the border is the only boundary there is. `--line` against
+   `--panel` measures 1.71:1 in the dark theme; all ten buttons in the lab
+   failed. `--line-control` measures 3.73:1 dark and 4.00:1 light against the
+   same fill, and 3.52:1 light / 3.73:1 dark against the `--bg` fill a button
+   takes on hover. */
 textarea,
 input,
 select,
 button {
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-control);
   border-radius: 0.65rem;
   background: var(--panel);
   color: var(--text);
@@ -184,9 +200,6 @@ select {
   padding: 0.55rem;
   width: 100%;
   max-width: 100%;
-  /* Form fields are found by their boundary, so it must clear WCAG 1.4.11's
-     3:1 — buttons keep the softer --line (their fill + label carry them). */
-  border-color: var(--line-control);
 }
 
 textarea {
@@ -540,9 +553,18 @@ button:disabled {
   fill: var(--text);
 }
 
+/* The two neutral stages of the CBC diagram — "Cᵢ (ciphertext)" and "AES
+   decrypt (key)". Their fill is within 1.03:1 of the page behind them, so the
+   stroke is the entire shape: it is what the arrows terminate on and what
+   separates one stage of the algorithm from the next, which makes it a
+   graphical object required to understand the content (WCAG 1.4.11, 3:1).
+   It drew in `--line`, a SURFACE divider, and measured 1.76:1 dark / 1.84:1
+   light — while the three coloured shapes beside it (`.d-out`, `.d-attacker`,
+   `.d-xor`) were at 5.03:1 to 8.11:1. Same token as every other control
+   boundary in the lab. */
 .cbc-diagram .d-box {
   fill: color-mix(in srgb, var(--panel) 60%, var(--bg) 40%);
-  stroke: var(--line);
+  stroke: var(--line-control);
 }
 
 .cbc-diagram .d-out {
@@ -653,8 +675,18 @@ button:disabled {
   font-family: 'IBM Plex Mono', 'Consolas', 'Menlo', monospace;
 }
 
+/* Idle = "no attack has run in this diagram yet". That used to be drawn as
+   `opacity: 0.75` on every cell, and opacity COMPOUNDS: `--pending` is chosen
+   for lightness precisely so it clears 4.5:1 without fading (see its comment at
+   the top of this file), but `.mech-byte`'s own fill is a surface one step
+   deeper than `--panel`, and 0.75 on top of that took the `·` glyphs in the
+   plaintext track to 4.4:1 — under the floor. The idle state is already carried
+   by two non-colour cues (every cell shows a placeholder dot, and none of them
+   carries the locked/hit colouring), so the dim was saying a third time what was
+   already said twice. A dashed edge says it instead, and costs no contrast:
+   `--pending` on the cell now measures 6.77:1. */
 .oracle-mech.mech-idle .mech-byte {
-  opacity: 0.75;
+  border-style: dashed;
 }
 
 @media (max-width: 600px) {
@@ -919,7 +951,14 @@ button:disabled {
   background: color-mix(in srgb, var(--danger) 55%, var(--muted));
 }
 
-/* Constant-time snippet in the explainer */
+/* Constant-time snippet in the explainer.
+
+   `white-space: pre` plus `overflow-x: auto` makes this a horizontal scroller,
+   and at 380px it genuinely scrolls: the longest line lays out at 493px inside a
+   312px column. A scrolling region with no focusable content inside it cannot be
+   scrolled from a keyboard at all (WCAG 2.1.1), so the markup gives it
+   `tabindex="0"` and a `role="region"` with a label — and that in turn makes it
+   a tab stop, which is why the focus ring below is not optional (WCAG 2.4.7). */
 .code-block {
   margin: 0.5rem 0 0;
   padding: 0.7rem 0.85rem;
@@ -927,6 +966,11 @@ button:disabled {
   border: 1px solid var(--line);
   border-radius: 0.6rem;
   background: color-mix(in srgb, var(--panel) 70%, var(--bg) 30%);
+}
+
+.code-block:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
 }
 
 .code-block code {

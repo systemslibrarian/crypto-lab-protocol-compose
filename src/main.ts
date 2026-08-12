@@ -351,7 +351,12 @@ app.innerHTML = `
           branches on the secret: it ORs together every byte difference and always scans the whole
           tag, so the running time is identical whatever you feed it.
         </p>
-        <pre class="code-block"><code>// leaks: stops early, time ∝ correct prefix length
+        <pre
+          class="code-block"
+          role="region"
+          tabindex="0"
+          aria-label="Leaking and constant-time tag comparison, side by side"
+        ><code>// leaks: stops early, time ∝ correct prefix length
 for (let i = 0; i &lt; tag.length; i++)
   if (a[i] !== tag[i]) return false;   // ← the timing tell
 return true;
