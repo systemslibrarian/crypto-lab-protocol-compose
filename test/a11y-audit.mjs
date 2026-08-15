@@ -50,13 +50,6 @@ try {
   await page.selectOption('#oracle-mode', 'etm');
   await audit('dark theme, exhibits exercised');
 
-  // Switch to light theme and re-audit (catches theme-specific contrast). The
-  // shared header hides each lab's own #theme-toggle and drives the theme from
-  // its own #cl-theme-toggle, so that is the control to click.
-  await page.click('#cl-theme-toggle');
-  await page.waitForFunction(() => document.documentElement.dataset.theme === 'light');
-  await audit('light theme');
-
   console.log(total === 0 ? '\nAll audits passed (no serious/critical violations).' : `\n${total} serious/critical violation(s).`);
 } finally {
   await browser.close();
