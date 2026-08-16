@@ -805,10 +805,11 @@ export async function driveAllStates(page: Page, theme: string): Promise<void> {
   await page.keyboard.press('Tab');
   await expect(page.locator('a.cl-skip-link')).toBeFocused();
   await scanAt('shared skip link focused');
-  // Five more: the bar's brand link, its Menu and GitHub links, its theme
-  // toggle, and then the lab's own skip link, which is the first thing inside
-  // `#app`.
-  for (let i = 0; i < 5; i += 1) await page.keyboard.press('Tab');
+  // Four more: the bar's brand link, its Menu and GitHub links, and then the
+  // lab's own skip link, which is the first thing inside `#app`. It used to be
+  // five — the bar's theme toggle sat between them until dark became the only
+  // theme and the toggle was removed.
+  for (let i = 0; i < 4; i += 1) await page.keyboard.press('Tab');
   await expect(page.locator('#app a.skip-link')).toBeFocused();
   await scanAt('lab skip link focused');
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur?.());
