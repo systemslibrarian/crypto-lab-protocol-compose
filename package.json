@@ -13,12 +13,12 @@
     "deploy": "npm run build && npx gh-pages -d dist"
   },
   "devDependencies": {
-    "@axe-core/playwright": "^4.11.3",
-    "@playwright/test": "^1.61.1",
+    "@axe-core/playwright": "^4.12.1",
+    "@playwright/test": "^1.62.1",
     "gh-pages": "^6.3.0",
-    "playwright": "^1.61.1",
+    "playwright": "^1.62.1",
     "typescript": "^5.8.3",
-    "vite": "^5.4.19",
-    "vitest": "^2.1.9"
+    "vite": "^8.2.0",
+    "vitest": "^4.1.10"
   }
 }
