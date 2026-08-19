@@ -64,29 +64,6 @@ function gloss(term: string, definition: string): string {
   return `<span class="gloss" tabindex="0" role="note" title="${escapeHtml(definition)}" aria-label="${escapeHtml(term)}: ${escapeHtml(definition)}">${escapeHtml(term)}</span>`;
 }
 
-function wireThemeToggle(): void {
-  const root = document.documentElement;
-  const button = document.querySelector<HTMLButtonElement>('#theme-toggle');
-  if (!button) {
-    return;
-  }
-
-  const setThemeUi = (theme: 'dark' | 'light'): void => {
-    root.dataset.theme = theme;
-    button.textContent = theme === 'dark' ? '🌙' : '☀️';
-    button.setAttribute('aria-label', theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
-  };
-
-  const initialTheme: 'dark' | 'light' = root.dataset.theme === 'light' ? 'light' : 'dark';
-  setThemeUi(initialTheme);
-
-  button.addEventListener('click', () => {
-    const nextTheme: 'dark' | 'light' = root.dataset.theme === 'light' ? 'dark' : 'light';
-    setThemeUi(nextTheme);
-    localStorage.setItem('theme', nextTheme);
-  });
-}
-
 const app = document.querySelector<HTMLDivElement>('#app');
 if (!app) {
   throw new Error('Missing #app root element');
@@ -96,12 +73,6 @@ app.innerHTML = `
   <a class="skip-link" href="#main-content">Skip to main content</a>
   <div class="page">
     <header class="cl-hero" role="banner">
-      <button
-        id="theme-toggle"
-        type="button"
-        class="theme-toggle"
-        aria-label="Switch to light mode"
-      >🌙</button>
       <div class="cl-hero-main">
         <h1 class="cl-hero-title">Protocol Composition</h1>
         <p class="cl-hero-sub">MtE · EtM · E&amp;M · AEAD</p>
@@ -462,8 +433,6 @@ return diff === 0;</code></pre>
     </footer>
   </div>
 `;
-
-wireThemeToggle();
 
 // ---------------------------------------------------------------------------
 // Shareable deep-link state. Every persisted control maps to one short query

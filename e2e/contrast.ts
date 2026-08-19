@@ -40,8 +40,8 @@ import type { Page } from '@playwright/test';
  * The ancestor walk is geometry-aware, because DOM ancestry is not the same
  * thing as "painted underneath". An absolutely positioned child can render
  * entirely outside its parent's box, and then the parent's background is simply
- * not behind it. On this page that is `.theme-toggle` and both skip links, all
- * three `position: absolute`. So an ancestor's own paint is applied only when
+ * not behind it. On this page that is both skip links, each
+ * `position: absolute`. So an ancestor's own paint is applied only when
  * its border box actually intersects the text's box; a partial intersection
  * still counts, so the judgement stays worst-case. Opacity is unconditional
  * either way — an opacity group fades its whole subtree wherever that subtree

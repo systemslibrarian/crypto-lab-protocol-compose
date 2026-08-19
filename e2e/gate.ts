@@ -203,15 +203,18 @@ export async function assertSingleBanner(page: Page): Promise<void> {
  * whose stylesheet and whose renderers disagreed about what the reader asked
  * for.
  *
- * The theme is seeded through `localStorage` rather than by clicking the toggle,
- * which also pins down a real failure mode: `index.html`'s anti-flash script
- * reads `localStorage.getItem('theme')`, the shared bar's toggle writes
- * `localStorage.setItem('theme', …)`, and `main.ts`'s own (CSS-hidden)
- * `#theme-toggle` writes the same key. If any of those drift apart the theme
- * silently stops persisting, and this boot fails on `data-theme` rather than
- * quietly scanning dark twice — which is precisely what the gate this replaces
- * did for its first test, since it never seeded a theme at all and simply
- * trusted the default.
+ * The theme is seeded through `localStorage` and then ASSERTED, which is what
+ * makes this boot a check on the one-theme contract rather than a setup step.
+ * Dark is the only theme: `index.html`'s boot script overwrites the stored
+ * `theme` key with the literal `'dark'` and stamps `data-theme="dark"` on
+ * `<html>` before first paint, so seeding `light` here would fail the assertion
+ * below rather than produce a light page. There is no longer any toggle to
+ * click — `main.ts` used to build its own `#theme-toggle`, hidden by the shared
+ * bar's `display:none` rule and still wired to flip the theme and persist it;
+ * that markup and its handler are deleted. Asserting the resolved
+ * `data-theme` is what stops this gate quietly scanning the wrong palette,
+ * which is precisely what the gate this replaces did for its first test, since
+ * it never seeded a theme at all and simply trusted the default.
  *
  * The defaults are asserted at length because this lab does NOT arrive empty:
  * the last two statements in `main.ts` are `ex1Run?.click()` and
