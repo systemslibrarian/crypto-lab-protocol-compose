@@ -5,17 +5,17 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "npm run test:publish-request && tsc -b && vite build",
     "preview": "vite preview",
     "test": "vitest run",
     "test:a11y": "playwright test",
     "test:a11y:node": "node test/a11y-audit.mjs",
-    "deploy": "npm run build && npx gh-pages -d dist"
+    "deploy": "gh workflow run pages.yml --repo systemslibrarian/crypto-lab-protocol-compose --ref main",
+    "test:publish-request": "node --test tests/publish-request.node.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",
     "@playwright/test": "^1.63.0",
-    "gh-pages": "^6.3.0",
     "playwright": "^1.62.1",
     "typescript": "^7.0.2",
     "vite": "^8.3.2",
