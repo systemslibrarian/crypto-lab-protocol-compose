@@ -993,3 +993,16 @@ button:disabled {
     transition: none;
   }
 }
+
+/* Exhibit 7: preserve the existing badge semantics and page chrome. */
+#ex7, #ex7 * { min-width: 0; }
+#sc-parties { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+#sc-parties .card { padding: .8rem; }
+#sc-parties code { font-size: .85rem; overflow-wrap: anywhere; }
+#sc-mode label { display: flex; align-items: center; gap: .6rem; min-height: 44px; }
+#sc-mode input { width: 20px; height: 20px; flex: 0 0 20px; }
+#sc-trace { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 32rem; overflow: auto; }
+#sc-negative { border: 2px solid var(--danger); padding: .8rem; }
+#sc-conclusion .badge { white-space: normal; }
+.panel[aria-labelledby="ex3-title"] .explainer { min-width: 0; max-width: 100%; }
+@media (max-width: 640px) { #sc-parties { grid-template-columns: 1fr; } }

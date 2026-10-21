@@ -251,7 +251,7 @@ export async function boot(page: Page, theme: 'dark' | 'light'): Promise<void> {
   // The whole page is built by `src/main.ts`, so a navigation that resolves
   // proves nothing at all about what is on screen.
   await expect(page.locator('#app .page')).toBeVisible();
-  await expect(page.locator('section.panel')).toHaveCount(8);
+  await expect(page.locator('section.panel')).toHaveCount(9);
 
   // ── Exhibit 1 and Exhibit 6 auto-run at module end; everything else is idle ──
   await expect(page.locator('#ex1-mte .badge')).toHaveCount(2);
@@ -951,4 +951,24 @@ export async function driveAllStates(page: Page, theme: string): Promise<void> {
     await expect(page.locator('#chk-output .badge')).toHaveText(expected);
     await scanAt(`Exhibit 6 verdict: aead=${aead} etm=${etm} order=${order}`);
   }
+}
+
+/** Exhibit 7's real controls, scanned after each honest, attacked and retired state. */
+export async function driveSigncrypt(page: Page, label: string): Promise<void> {
+  await expect(page.locator('#sc-send')).toBeEnabled();
+  for (const mode of ['bound','ets','ste']) {
+    await page.locator(`input[name="sc-protocol"][value="${mode}"]`).check();
+    await scan(page,`${label} ${mode} selection`);
+    for (const action of ['send',...(mode==='ets'?['strip']:mode==='ste'?['forward']:['strip','forward'])]) {
+      await page.locator('#sc-'+action).click(); await expect(page.locator('#sc-status')).toHaveText(/Checks complete/);
+      await scan(page,`${label} ${mode} ${action}`);
+    }
+    if (await page.locator('#sc-bytes').getAttribute('open') === null) await page.locator('#sc-bytes summary').click();
+    await scan(page,`${label} ${mode} bytes disclosure`);
+    await page.locator('#sc-send').click(); await expect(page.locator('#sc-status')).toHaveText(/Checks complete/);
+    await page.locator('#sc-flip').click(); await expect(page.locator('#sc-status')).toHaveText(/Checks complete/); await scan(page,`${label} ${mode} GCM rejection`);
+    await page.locator('#sc-send').click(); await expect(page.locator('#sc-status')).toHaveText(/Checks complete/);
+    await page.locator('#sc-malleate').click(); await expect(page.locator('#sc-status')).toHaveText(/Checks complete/); await scan(page,`${label} ${mode} S+L rejection`);
+  }
+  await page.locator('#sc-message').fill(''); await page.locator('#sc-send').click(); await expect(page.locator('#sc-status')).toContainText('Empty message'); await scan(page,`${label} empty message refusal`);
 }

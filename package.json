@@ -11,7 +11,8 @@
     "test:a11y": "playwright test",
     "test:a11y:node": "node test/a11y-audit.mjs",
     "deploy": "gh workflow run pages.yml --repo systemslibrarian/crypto-lab-protocol-compose --ref main",
-    "test:publish-request": "node --test tests/publish-request.node.mjs"
+    "test:publish-request": "node --test tests/publish-request.node.mjs",
+    "test:mutations": "node scripts/check-signcrypt-mutations.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",

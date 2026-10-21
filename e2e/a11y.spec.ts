@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import {
   boot,
   driveAllStates,
+  driveSigncrypt,
   expectBaselineNotStale,
   NARROW,
   reportCollected,
@@ -41,6 +42,7 @@ for (const theme of ['dark'] as const) {
     const errors = watchPageErrors(page);
     await boot(page, theme);
     await driveAllStates(page, theme);
+    await driveSigncrypt(page, theme);
     expect(errors, errors.join('\n')).toEqual([]);
     expectBaselineNotStale();
     reportCollected();
@@ -52,8 +54,16 @@ for (const theme of ['dark'] as const) {
     await page.setViewportSize(NARROW);
     await boot(page, theme);
     await driveAllStates(page, `${theme} @380px`);
+    await driveSigncrypt(page, `${theme} @380px`);
     expect(errors, errors.join('\n')).toEqual([]);
     expectBaselineNotStale();
     reportCollected();
   });
 }
+
+
+test('Exhibit 7 reflows and passes accessibility at 320px', async ({ page }) => {
+  test.setTimeout(600_000); const errors = watchPageErrors(page);
+  await page.setViewportSize({width:320,height:900}); await boot(page,'dark');
+  await driveSigncrypt(page,'Exhibit 7 @320px'); expect(errors).toEqual([]); reportCollected();
+});

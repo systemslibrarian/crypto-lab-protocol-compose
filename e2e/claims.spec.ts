@@ -29,6 +29,8 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
  *   5. Exhibits 5 and 6 (TLS walkthrough, checklist) are self-consistent: the
  *      active dot's safety class matches the badge on the card it points at, and
  *      every branch of the checklist is reachable and names its cause.
+ *   7. Exhibit 7: independent Node checks, strip/forward attacks, identity repair,
+ *      noncanonical signatures, negative claim, and async retirement.
  *   6. Stale state is retracted: editing either Exhibit 1 message or the oracle's
  *      configuration takes the previous verdict down instead of leaving it
  *      standing over inputs it was never computed from (both were live bugs).
@@ -633,4 +635,89 @@ test('the configuration round-trips through the URL hash', async ({ page, contex
   await expect(shared.locator('#chk-output .badge')).toHaveClass(/badge-danger/);
   await expect(shared.locator('#chk-output .badge')).toContainText('Encrypt-and-MAC');
   await shared.close();
+});
+
+// Exhibit 7 — public-key composition and its first explicit negative claim.
+import { scReady, scMode, scAction, independentReceipt } from './signcrypt-checks';
+import { createHash } from 'node:crypto';
+
+test.afterEach(async ({ page }) => {
+  if (process.env.MUTATION_ASSETS) for (const [name, expected] of Object.entries(JSON.parse(process.env.MUTATION_ASSETS))) {
+    const response = await page.request.get('assets/' + name);
+    expect(response.ok(), 'MUTATION_ASSET_MISMATCH: ' + name).toBe(true);
+    expect(createHash('sha256').update(await response.body()).digest('hex'), 'MUTATION_ASSET_MISMATCH: ' + name).toBe(expected);
+  }
+});
+
+test('Exhibit 7: strip is misattributed even though Node verifies every primitive', async ({ page }) => {
+  await scMode(page,'ets'); await scAction(page,'send'); const honest = await independentReceipt(page);
+  await scAction(page,'strip'); const r = await independentReceipt(page);
+  expect([r.signature,r.decrypted,r.identity]).toEqual([true,true,true]); expect(r.trace.packet.envelope).toEqual(honest.trace.packet.envelope);
+  expect(r.signer).toBe('Ada'); expect(r.message).toBe(honest.message);
+  await expect(page.locator('#sc-conclusion .badge')).toHaveClass(/badge-danger/);
+  await expect(page.locator('#sc-conclusion')).toContainText('SIGNATURE VALID, DECRYPTED — AND MISATTRIBUTED');
+  await expect(page.locator('#sc-belief')).toContainText(`Ravi believes: ${r.signer} wrote this`);
+  await expect(page.locator('#sc-reply')).toContainText(r.message); await expect(page.locator('#sc-reply')).toContainText('Modelled auto-reply precondition');
+});
+
+test('Exhibit 7: forwarded negative fixture passes every primitive but establishes no recipient', async ({ page }) => {
+  await scMode(page,'ste'); await scAction(page,'send'); const honest = await independentReceipt(page);
+  await scAction(page,'forward'); const r = await independentReceipt(page);
+  expect([r.signature,r.decrypted,r.identity]).toEqual([true,true,true]); expect(r.plaintext).toEqual(honest.plaintext);
+  expect(r.trace.receiver).toBe('Rita'); expect(r.signer).toBe('Sara'); expect(r.recipient).toBe('');
+  await expect(page.locator('#sc-conclusion .badge')).toHaveClass(/badge-danger/);
+  await expect(page.locator('#sc-conclusion')).toContainText('SIGNATURE VALID, DECRYPTED — AND FORWARDED');
+  await expect(page.locator('#sc-belief')).toContainText(`${r.trace.receiver} believes: ${r.signer} wrote this to ${r.trace.receiver}`);
+  await expect(page.locator('#sc-negative')).toHaveText('A valid signature inside a correctly decrypted message does not establish who the sender meant it for.');
+  await expect(page.locator('#sc-negative')).toBeVisible();
+});
+
+test('Exhibit 7: bound identities reject strip and forward for independently decrypted causes', async ({ page }) => {
+  await scReady(page); await scAction(page,'send'); await independentReceipt(page);
+  await scAction(page,'strip'); let r = await independentReceipt(page);
+  expect([r.signature,r.decrypted,r.identity]).toEqual([true,true,false]);
+  await expect(page.locator('#sc-identity')).toContainText(`inner sender ${r.innerSender}, outer sender ${r.trace.packet.sender}`);
+  await expect(page.locator('#sc-conclusion .badge')).toHaveClass(/badge-safe/);
+  await scAction(page,'forward'); r = await independentReceipt(page);
+  expect([r.signature,r.decrypted,r.identity]).toEqual([true,true,false]);
+  await expect(page.locator('#sc-identity')).toContainText(`signed for ${r.recipient}, received by ${r.trace.receiver}`);
+  await expect(page.locator('#sc-conclusion')).toContainText('REJECTED');
+});
+
+test('Exhibit 7: GCM byte flips and noncanonical S plus L fail real independent checks', async ({ page }) => {
+  // Platform prerequisite: no app wrapper or alternative implementation may hide it.
+  const accepted = await page.evaluate(async () => {
+    const keys = await crypto.subtle.generateKey('Ed25519',true,['sign','verify']); const msg = new Uint8Array([1,2,3]);
+    const sig = new Uint8Array(await crypto.subtle.sign('Ed25519',keys.privateKey,msg));
+    let s=0n; for(let i=63;i>=32;i--)s=(s<<8n)+BigInt(sig[i]); s+=(1n<<252n)+27742317777372353535851937790883648493n;
+    for(let i=32;i<64;i++){sig[i]=Number(s&255n);s>>=8n;}
+    return crypto.subtle.verify('Ed25519',keys.publicKey,sig,msg);
+  });
+  expect(accepted,'PLATFORM FINDING: WebCrypto accepts S + L; stop without fallback').toBe(false);
+  for (const mode of ['bound','ets','ste']) {
+    await scMode(page,mode); await scAction(page,'send'); await scAction(page,'flip');
+    expect((await independentReceipt(page)).decrypted).toBe(false); await expect(page.locator('#sc-conclusion')).toContainText('REJECTED');
+    await scAction(page,'send'); await scAction(page,'malleate'); const r = await independentReceipt(page);
+    expect(r.signature).toBe(false); expect(r.decrypted).toBe(true); await expect(page.locator('#sc-conclusion')).toContainText('REJECTED');
+  }
+});
+
+test('Exhibit 7: edits retire results; identical selection and input preserve them; empty refuses', async ({ page }) => {
+  await scReady(page); await scAction(page,'send'); const before = await page.locator('#sc-trace').innerText();
+  await page.locator('input[value="bound"]').dispatchEvent('change'); await page.locator('#sc-message').dispatchEvent('input');
+  await expect(page.locator('#sc-trace')).toHaveText(before);
+  await page.locator('#sc-message').fill('changed'); await expect(page.locator('#sc-results')).toBeEmpty(); await expect(page.locator('#sc-trace')).toBeEmpty(); await expect(page.locator('#sc-status')).toContainText('retired');
+  await expect(page.locator('#sc-strip')).toBeDisabled(); await scAction(page,'send'); await scMode(page,'ste'); await expect(page.locator('#sc-results')).toBeEmpty();
+  await page.locator('#sc-message').fill(''); await page.locator('#sc-send').click(); await expect(page.locator('#sc-status')).toContainText('Empty message'); await expect(page.locator('#sc-trace')).toBeEmpty();
+});
+
+test('Exhibit 7: delayed signatures cannot resurrect an edited verdict', async ({ page }) => {
+  await scReady(page); await page.evaluate(() => { const original = crypto.subtle.sign.bind(crypto.subtle); crypto.subtle.sign = async (...args) => { await new Promise(r => setTimeout(r,250)); return original(...args); }; });
+  await page.locator('#sc-send').click(); await page.locator('#sc-message').fill('edited while signing'); await page.waitForTimeout(600);
+  await expect(page.locator('#sc-results')).toBeEmpty(); await expect(page.locator('#sc-trace')).toBeEmpty(); await expect(page.locator('#sc-status')).toContainText('retired');
+});
+
+test('Exhibit 7: unsupported Ed25519 refuses without fallback', async ({ page }) => {
+  await page.addInitScript(() => { const original = crypto.subtle.generateKey.bind(crypto.subtle); crypto.subtle.generateKey = ((algorithm: any,...args: any[]) => { if (algorithm === 'Ed25519' || algorithm.name === 'Ed25519') return Promise.reject(new DOMException('Unsupported','NotSupportedError')); return (original as any)(algorithm,...args); }) as any; });
+  await page.reload(); await expect(page.locator('#sc-status')).toContainText('no fallback'); await expect(page.locator('#sc-send')).toBeDisabled();
 });

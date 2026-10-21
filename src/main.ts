@@ -1,3 +1,4 @@
+import { signcryptMarkup, wireSigncrypt } from './signcrypt-panel';
 import './style.css';
 import {
   type CryptoSuite,
@@ -381,8 +382,7 @@ return diff === 0;</code></pre>
       </p>
       <p class="note">
         The same "each piece is fine, the seam is not" pattern also breaks
-        <strong>secret-prefix MACs</strong>, <code>H(key ‖ message)</code> (length extension), and <strong>sign-then-encrypt</strong>
-        (a signed plaintext can be peeled off and forwarded by someone else).
+        <strong>secret-prefix MACs</strong>, <code>H(key ‖ message)</code> (length extension), and the <strong>public-key seam in Exhibit 7</strong>.
       </p>
     </section>
 
@@ -420,6 +420,7 @@ return diff === 0;</code></pre>
       <button id="chk-run" type="button">Evaluate this design</button>
       <div id="chk-output" class="oracle-output" role="status" aria-live="polite"></div>
     </section>
+    ${signcryptMarkup()}
     </main>
 
     <footer class="hero" role="contentinfo">
@@ -1255,3 +1256,5 @@ if (chkRun && chkAead && chkEtm && chkOrder && chkOutput) {
 applyStateFromUrl();
 ex1Run?.click();
 chkRun?.click();
+
+void wireSigncrypt(badge);

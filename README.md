@@ -4,6 +4,8 @@
 
 crypto-lab-protocol-compose is a browser demo of protocol composition safety using AES-CBC, HMAC with SHA-256, and AES-256-GCM through the WebCrypto API. It compares MAC-then-Encrypt, Encrypt-then-MAC, Encrypt-and-MAC, and AEAD under one interactive interface. The project shows that composition order changes what an attacker can observe and exploit, even when each primitive is secure in isolation. The security model is symmetric-key authenticated messaging where attackers can tamper with transmitted ciphertexts and observe verifier behavior.
 
+Exhibit 7 extends the composition question to signatures and public-key encryption (ECDH P-256 ECIES + Ed25519, WebCrypto).
+
 ## When to Use It
 
 - Use it when reviewing legacy AES-CBC + HMAC designs, because the demo shows exactly how MtE requires decryption before MAC validation.
@@ -20,6 +22,9 @@ crypto-lab-protocol-compose is a browser demo of protocol composition safety usi
 The demo lets you encrypt a live message across composition modes and inspect resulting ciphertext/tag outputs. You can seal two messages side by side to surface the Encrypt-and-MAC equality leak, execute the padding oracle runner — whose live CBC mechanism diagram lights up the attacker-controlled byte and flips the matching plaintext byte green in step with the recovery — recover an HMAC tag from a naive (non-constant-time) comparison's timing with a per-bar readout equating comparison count to elapsed time, watch the CRIME length-leak recover a session secret from its two reflected request lines, step through the TLS evolution walkthrough, and compute risk with the protocol safety checklist. Newcomer on-ramp: jargon terms (MAC, IV/nonce, AEAD, padding oracle) carry a one-line plain-language gloss on hover/focus, a "four orders as a spectrum" map frames each attack before you run it, and the AEAD exhibit is honest that AEAD only *moves* the footgun to nonce reuse. Each control is tied to real WebCrypto operations rather than simulated arithmetic, and the current configuration is encoded in the URL so a specific setup can be shared as a link.
 
 ## What Can Go Wrong
+
+- Signature stripping (encrypt-then-sign): bind and check the encrypted sender against the claimed sender.
+- Surreptitious forwarding (sign-then-encrypt): sign the intended recipient and check it after decryption.
 
 - MtE padding oracle exposure: decryption happens before MAC verification, so padding validity can become an oracle that leaks plaintext bytes.
 - E&M plaintext-correlation leak: MACing plaintext separately exposes a reusable authenticator that can reveal message equality across sessions.
@@ -46,6 +51,9 @@ npm run dev
 ```
 
 ## Related Demos
+- [Iron Letter](https://systemslibrarian.github.io/crypto-lab-iron-letter/) — the ECIES pattern used in Exhibit 7.
+- [HPKE Envelope](https://systemslibrarian.github.io/crypto-lab-hpke-envelope/) — modern context binding.
+- [Vector Gate](https://systemslibrarian.github.io/crypto-lab-vector-gate/) — signature acceptance boundaries.
 - [crypto-lab-padding-oracle](https://systemslibrarian.github.io/crypto-lab-padding-oracle/) — the Vaudenay AES-CBC PKCS#7 padding oracle that MAC-then-Encrypt exposes.
 - [crypto-lab-aes-modes](https://systemslibrarian.github.io/crypto-lab-aes-modes/) — AES-GCM and CBC modes, the building blocks composed here.
 - [crypto-lab-nonce-guard](https://systemslibrarian.github.io/crypto-lab-nonce-guard/) — AES-GCM nonce-reuse pitfalls in the AEAD that replaces CBC composition.
@@ -54,10 +62,16 @@ npm run dev
 
 ## Development
 
+Exhibit 7 verification and catalog handoff: [extension-handoff.md](extension-handoff.md).
+Its visible negative fixture shows why a correctly decrypted, valid signature
+does not establish its intended recipient.
+
+
 - `npm run dev` — local dev server.
 - `npm run build` — type-check and produce the production bundle.
 - `npm test` — Vitest suite covering the live crypto: composition round-trips, tamper rejection, byte-for-byte padding-oracle recovery, the E&M equality leak, CRIME compression recovery, timing-side-channel tag recovery (and its constant-time defense), and measured WCAG AA contrast for every color token in both themes.
-- `npm run test:a11y` — real-browser accessibility audit (Playwright + axe-core, WCAG 2.0/2.1 A + AA) run against the production build in both light and dark themes. Run `npm run build` first.
+- `npm run test:mutations` — six concrete Exhibit 7 source mutations with build/served-byte/restoration checks.
+- `npm run test:a11y` — real-browser accessibility audit (Playwright + axe-core, WCAG 2.0/2.1 A + AA) run against the production build on the dark-only page. Run `npm run build` first.
 
 ---
 
