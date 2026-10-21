@@ -23,8 +23,10 @@ The demo lets you encrypt a live message across composition modes and inspect re
 
 ## What Can Go Wrong
 
-- Signature stripping (encrypt-then-sign): bind and check the encrypted sender against the claimed sender.
-- Surreptitious forwarding (sign-then-encrypt): sign the intended recipient and check it after decryption.
+- Signature stripping in the naïve encrypt-then-sign protocol shown: bind and check the encrypted sender against the claimed sender.
+- Surreptitious forwarding in the naïve sign-then-encrypt protocol shown: sign the intended recipient and check it after decryption.
+
+The public-key exhibit assumes trusted bindings between identities and public keys. Signature verification checks bytes against a key; it does not establish human authorship by itself. Neither composition order is inherently broken: the complete protocol and identity bindings matter.
 
 - MtE padding oracle exposure: decryption happens before MAC verification, so padding validity can become an oracle that leaks plaintext bytes.
 - E&M plaintext-correlation leak: MACing plaintext separately exposes a reusable authenticator that can reveal message equality across sessions.

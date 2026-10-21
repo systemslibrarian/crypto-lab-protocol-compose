@@ -3,12 +3,12 @@ export const NEGATIVE = 'A valid signature inside a correctly decrypted message 
 export function signcryptMarkup(): string { return `
 <section class="panel" id="ex7" aria-labelledby="ex7-title">
   <h2 id="ex7-title">Exhibit 7 — The Public-Key Seam: Sign and Encrypt</h2>
-  <p>Signing proves who wrote something; encrypting decides who can read it. Doing both sounds like it gives you both. Try two ways the order lets someone change who a message appears to be from, or to, without breaking either primitive — and the small fix that stops both.</p>
+  <p>A signature lets a receiver check a message against a public signing key; encryption limits who can read it. Connecting that key to a person requires a trusted identity binding, which this lab assumes. Try two naïve combinations that let someone change who a message appears to be from, or to, without breaking either primitive — and the identity checks that stop these attacks.</p>
   <div id="sc-parties" role="group" aria-label="Parties and public-key fingerprints">Generating fresh session keys…</div>
   <fieldset id="sc-mode"><legend>Choose the protocol</legend>
     <label><input type="radio" name="sc-protocol" value="bound" checked> Fixed: bind sender and recipient</label>
-    <label><input type="radio" name="sc-protocol" value="ets"> BROKEN: encrypt then sign</label>
-    <label><input type="radio" name="sc-protocol" value="ste"> BROKEN: sign then encrypt</label>
+    <label><input type="radio" name="sc-protocol" value="ets"> BROKEN: naïve encrypt then sign</label>
+    <label><input type="radio" name="sc-protocol" value="ste"> BROKEN: naïve sign then encrypt</label>
   </fieldset>
   <label for="sc-message">Sara's message to Ravi</label><textarea id="sc-message" maxlength="4096">I owe you $100.</textarea>
   <p id="sc-explain">Fixed: sign the message and recipient; encrypt the sender, message and signature. The receiver checks both identities.</p>
@@ -19,7 +19,7 @@ export function signcryptMarkup(): string { return `
     <p>This local teaching disclosure includes the receiver's private decryption key for independent checks. The outsider attack receives only the packet and Ada's own keys. These fresh session keys are never persisted. Do not enter real secrets.</p>
     <pre id="sc-trace" tabindex="0" role="region" aria-label="Cryptographic trace"></pre>
   </details>
-  <p class="note">Katz–Lindell §13.8 requires CCA-secure encryption and strongly unforgeable signatures when identities are included. Ed25519's RFC 8032 verifier must reject S + L; the control above tests that essential rule. This one test is not a proof of the whole scheme. This is a teaching composition, not a production signcryption format.</p>
+  <p class="note">The attacks concern the naïve protocols shown, not every construction using either order. Security depends on the complete protocol and its identity bindings. Katz–Lindell §13.8 requires CCA-secure encryption and strongly unforgeable signatures when identities are included. Ed25519's RFC 8032 verifier must reject S + L; the control above tests that essential rule. This one test is not a proof of the whole scheme. This is a teaching composition, not a production signcryption format.</p>
   <p class="note">Read more: <a href="https://static.usenix.org/publications/library/proceedings/usenix01/full_papers/davis/davis.pdf">Davis, Defective Sign &amp; Encrypt (2001)</a>; <a href="https://eprint.iacr.org/2002/046">An, Dodis &amp; Rabin (EUROCRYPT 2002)</a>; <a href="https://www.rfc-editor.org/rfc/rfc8032.html">RFC 8032</a>. Related: <a href="https://systemslibrarian.github.io/crypto-lab-iron-letter/">Iron Letter</a>, <a href="https://systemslibrarian.github.io/crypto-lab-hpke-envelope/">HPKE Envelope</a>, <a href="https://systemslibrarian.github.io/crypto-lab-vector-gate/">Vector Gate</a>.</p>
 </section>`; }
 export async function wireSigncrypt(badge: (kind: 'safe' | 'warn' | 'danger', text: string) => string): Promise<void> {

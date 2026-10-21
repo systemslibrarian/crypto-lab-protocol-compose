@@ -66,3 +66,16 @@ marked future seams, not implementation claims.
 The fleet-wide sync check remains blocked by missing unrelated checkouts.
 The shared catalog, counsel, census and checker are unchanged. Final main SHA
 and live-byte proof are recorded after publication.
+
+## Educational accuracy follow-up
+
+Replaced the overstatement that signing proves human authorship. The exhibit
+now explains verification against a public signing key and explicitly assumes
+trusted bindings between keys and identities. The two broken modes are named
+naïve compositions, and the scope note explains that neither ordering is
+inherently broken. This matches the identity-binding failure described in
+[Davis (2001)](https://static.usenix.org/publications/library/proceedings/usenix01/full_papers/davis/davis.pdf).
+The cryptographic computations and attack demonstrations are unchanged.
+
+Validation: all 61 unit tests, two publishing-request tests and all 27 browser
+tests passed, including independent packet checks and accessibility.
