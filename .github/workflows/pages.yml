@@ -7,37 +7,57 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
-  pages: write
-  id-token: write
 concurrency:
   group: pages-${{ github.ref }}
-  cancel-in-progress: true
+  # Cancelling a main/dispatch run can strand a green commit without a Pages
+  # deployment. Only superseded PR validation is safe to stop early.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: 24
-      - run: npm install
+          cache: npm
+      - run: npm ci
       - run: npx tsc --noEmit
       - run: npm test --if-present
       - run: npm run build
       - name: Install Playwright browser
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install chromium
       - name: Accessibility gate (axe-core, WCAG A/AA)
         run: npm run test:a11y
       - uses: actions/upload-pages-artifact@v5
+        if: github.event_name != 'pull_request'
         with:
           path: dist
+
+  configure-pages:
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pages: write
+      id-token: write
+    steps:
+      # This privileged job executes no repository code or package lifecycle script.
+      - uses: actions/configure-pages@v6
+
   deploy:
     if: github.event_name != 'pull_request'
-    needs: build
+    needs: configure-pages
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      pages: write
+      id-token: write
     steps:
       - uses: actions/deploy-pages@v5
         id: deployment
@@ -51,6 +71,7 @@ jobs:
     needs: build
     if: github.event_name == 'pull_request' && github.actor == 'dependabot[bot]'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: write
       pull-requests: write
@@ -58,11 +79,8 @@ jobs:
     steps:
       - id: meta
         uses: dependabot/fetch-metadata@v3
-      # Majors included on purpose. `needs:` above already required the whole
-      # gate to pass, and that gate -- unit tests, build, axe WCAG and the e2e
-      # claims -- judges a bump far better than its version number does. A major
-      # that actually breaks this lab fails the gate and stays open for a human.
-      - name: Merge any bump whose gate went green
+      - name: Merge a non-major bump whose gate went green
+        if: steps.meta.outputs.update-type != 'version-update:semver-major'
         # Retry: a sibling PR merging first moves main underneath us and GitHub
         # rejects with "Base branch was modified". That is benign, so try again
         # rather than failing the run over a race.
@@ -77,17 +95,15 @@ jobs:
             sleep 15
           done
           if [ -z "$merged" ]; then
-            echo "::warning::gate passed but the merge did not land after 3 attempts;"
-            echo "::warning::leaving this PR open - Dependabot will rebase and retry."
-            exit 0
+            echo "::error::gate passed but the merge did not land after 3 attempts"
+            exit 1
           fi
           # A merge made with GITHUB_TOKEN raises no push event -- GitHub suppresses
           # them so workflows cannot retrigger themselves -- so deploy would never run
           # and the site would keep serving the previous build. Ask for it explicitly;
           # a workflow_dispatch through the API is not suppressed. The dispatched run
           # is the same gate-then-deploy pipeline, so a bad merge still ships nothing.
-          gh workflow run pages.yml --repo "$GITHUB_REPOSITORY" --ref main \
-            || echo "::warning::deploy dispatch failed; run pages.yml by hand"
+          gh workflow run pages.yml --repo "$GITHUB_REPOSITORY" --ref main
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

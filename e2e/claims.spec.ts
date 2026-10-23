@@ -204,6 +204,25 @@ test('editing a message retracts the seal instead of leaving a stale verdict', a
   expect(eam.flaggedEqual).toBe(false);
 });
 
+test('editing while Exhibit 1 WebCrypto is in flight cannot resurrect retired cards', async ({ page }) => {
+  await page.evaluate(() => {
+    const original = crypto.subtle.encrypt.bind(crypto.subtle);
+    crypto.subtle.encrypt = async (...args) => {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      return original(...args);
+    };
+  });
+
+  await page.locator('#ex1-run').click();
+  await expect(page.locator('#ex1-run')).toBeDisabled();
+  await page.locator('#ex1-b').fill('edited while sealing');
+  await expect(page.locator('#ex1-run')).toBeEnabled();
+  await expect(page.locator('#ex1-hint')).toContainText('Messages changed');
+  for (const cardId of ['#ex1-mte', '#ex1-etm', '#ex1-eam', '#ex1-aead']) {
+    await expect(page.locator(`${cardId} .card-body`)).toBeEmpty();
+  }
+});
+
 // ---------------------------------------------------------------------------
 // Exhibit 2 — the padding oracle. Runs with motion reduced so the demo takes its
 // no-animation path: the recovery itself is identical, and the assertions are
@@ -349,6 +368,27 @@ test('the mechanism diagram sweeps the attacked byte while the attack runs', asy
   expect(glyphs.startsWith('hi')).toBe(true);
 });
 
+test('editing while the padding-oracle seal is in flight retires the pending result', async ({ page }) => {
+  await page.evaluate(() => {
+    const original = crypto.subtle.sign.bind(crypto.subtle);
+    crypto.subtle.sign = async (...args) => {
+      (window as typeof window & { delayedHmacStarted?: boolean }).delayedHmacStarted = true;
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      return original(...args);
+    };
+  });
+
+  await page.locator('#oracle-message').fill('old oracle input');
+  await page.locator('#oracle-run').click();
+  await page.waitForFunction(() => (window as typeof window & { delayedHmacStarted?: boolean }).delayedHmacStarted);
+  await page.locator('#oracle-message').fill('edited while sealing');
+  await expect(page.locator('#oracle-run')).toBeEnabled({ timeout: 30_000 });
+  await expect(page.locator('#oracle-status')).toBeEmpty();
+  await expect(page.locator('#oracle-visual')).toHaveText('Press “Run the attack” to begin.');
+  await expect(page.locator('#oracle-counter')).toBeEmpty();
+  await expect(page.locator('#oracle-mech')).toHaveClass(/mech-idle/);
+});
+
 // ---------------------------------------------------------------------------
 // Exhibit 3 — timing side-channel on the tag comparison.
 // ---------------------------------------------------------------------------
@@ -399,7 +439,7 @@ test.describe('timing side-channel (reduced motion)', () => {
   test('the constant-time compare recovers nothing and proves it by revealing the tag', async ({ page }) => {
     await page.selectOption('#tmg-mode', 'ct');
     await page.locator('#tmg-run').click();
-    await expect(page.locator('#tmg-status')).toContainText('Constant-time compare holds', { timeout: 60_000 });
+    await expect(page.locator('#tmg-status')).toContainText('Fixed-work model holds', { timeout: 60_000 });
     await expect(page.locator('#tmg-status')).toHaveClass(/verdict-safe/);
     await expect(page.locator('#tmg-status')).toContainText('recovers nothing');
 
@@ -431,8 +471,18 @@ test.describe('timing side-channel (reduced motion)', () => {
 
     // The next run must attack a newly drawn tag, not replay the recovered one.
     await page.locator('#tmg-run').click();
-    await expect(page.locator('#tmg-status')).toContainText('Constant-time compare holds', { timeout: 60_000 });
+    await expect(page.locator('#tmg-status')).toContainText('Fixed-work model holds', { timeout: 60_000 });
   });
+});
+
+test('switching mode during the timing animation cannot repaint a retired verdict', async ({ page }) => {
+  await page.locator('#tmg-run').click();
+  await expect(page.locator('#tmg-status')).toContainText('comparison-work oracle');
+  await page.selectOption('#tmg-mode', 'ct');
+  await expect(page.locator('#tmg-run')).toBeEnabled({ timeout: 30_000 });
+  await expect(page.locator('#tmg-status')).toBeEmpty();
+  await expect(page.locator('#tmg-visual')).toBeEmpty();
+  await expect(page.locator('#tmg-counter')).toBeEmpty();
 });
 
 // ---------------------------------------------------------------------------

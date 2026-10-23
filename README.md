@@ -19,7 +19,7 @@ Exhibit 7 extends the composition question to signatures and public-key encrypti
 
 **[systemslibrarian.github.io/crypto-lab-protocol-compose](https://systemslibrarian.github.io/crypto-lab-protocol-compose/)**
 
-The demo lets you encrypt a live message across composition modes and inspect resulting ciphertext/tag outputs. You can seal two messages side by side to surface the Encrypt-and-MAC equality leak, execute the padding oracle runner — whose live CBC mechanism diagram lights up the attacker-controlled byte and flips the matching plaintext byte green in step with the recovery — recover an HMAC tag from a naive (non-constant-time) comparison's timing with a per-bar readout equating comparison count to elapsed time, watch the CRIME length-leak recover a session secret from its two reflected request lines, step through the TLS evolution walkthrough, and compute risk with the protocol safety checklist. Newcomer on-ramp: jargon terms (MAC, IV/nonce, AEAD, padding oracle) carry a one-line plain-language gloss on hover/focus, a "four orders as a spectrum" map frames each attack before you run it, and the AEAD exhibit is honest that AEAD only *moves* the footgun to nonce reuse. Each control is tied to real WebCrypto operations rather than simulated arithmetic, and the current configuration is encoded in the URL so a specific setup can be shared as a link.
+The demo lets you encrypt a live message across composition modes and inspect resulting ciphertext/tag outputs. You can seal two messages side by side to surface the Encrypt-and-MAC equality leak, execute the padding oracle runner — whose live CBC mechanism diagram lights up the attacker-controlled byte and flips the matching plaintext byte green in step with the recovery — recover a real truncated HMAC tag through a deterministic comparison-work oracle that models a naive comparison's timing leak, watch the CRIME length-leak recover a session secret from its two reflected request lines, step through the TLS evolution walkthrough, and compute risk with the protocol safety checklist. Newcomer on-ramp: jargon terms (MAC, IV/nonce, AEAD, padding oracle) carry a one-line plain-language gloss on hover/focus, a "four orders as a spectrum" map frames each attack before you run it, and the AEAD exhibit is honest that AEAD only *moves* the footgun to nonce reuse. The cryptographic exhibits use real WebCrypto operations; the timing chart deliberately counts comparisons instead of claiming noisy JavaScript wall-clock measurements, while the timeline and checklist are explanatory controls. The current configuration is encoded in the URL so a specific setup can be shared as a link.
 
 ## What Can Go Wrong
 
@@ -37,10 +37,10 @@ The public-key exhibit assumes trusted bindings between identities and public ke
 
 ## Real-World Usage
 
-- TLS 1.0/1.1: relied on CBC-era constructions that motivated later composition hardening.
-- TLS 1.2: still allowed CBC MtE suites, leaving room for Lucky Thirteen-style residual risk.
+- TLS 1.0: chained each CBC record's IV from the previous record, creating the predictable-IV condition exploited by BEAST.
+- TLS 1.1/1.2 CBC suites: use explicit IVs, which remove that TLS 1.0 condition, but retain decrypt-first MtE timing risk such as Lucky Thirteen.
 - TLS 1.3: removed CBC record protection and mandates AEAD, demonstrating safer composition by design.
-- SSH (Encrypt-and-MAC variants): illustrates how separate plaintext MAC handling can leak correlations and composition metadata.
+- SSH: its original binary packet format MACs the sequence number plus the unencrypted packet before encryption. Exhibit 1's equality leak is a deliberately simplified E&M model, not a wire-faithful SSH transcript.
 - BEAST and Lucky Thirteen case studies: concrete attacks that showed protocol composition, not primitive choice alone, determines security outcomes.
 
 ## How to Run Locally
@@ -71,7 +71,7 @@ does not establish its intended recipient.
 
 - `npm run dev` — local dev server.
 - `npm run build` — type-check and produce the production bundle.
-- `npm test` — Vitest suite covering the live crypto: composition round-trips, tamper rejection, byte-for-byte padding-oracle recovery, the E&M equality leak, CRIME compression recovery, timing-side-channel tag recovery (and its constant-time defense), and measured WCAG AA contrast for every color token in both themes.
+- `npm test` — Vitest suite covering the live crypto: composition round-trips, tamper rejection, byte-for-byte padding-oracle recovery, the E&M equality leak, CRIME compression recovery, comparison-work modeling of a timing leak and its fixed-work defense, and measured WCAG AA contrast for every color token in both themes.
 - `npm run test:mutations` — six concrete Exhibit 7 source mutations with build/served-byte/restoration checks.
 - `npm run test:a11y` — real-browser accessibility audit (Playwright + axe-core, WCAG 2.0/2.1 A + AA) run against the production build on the dark-only page. Run `npm run build` first.
 
