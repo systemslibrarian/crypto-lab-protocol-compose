@@ -918,7 +918,7 @@ export async function driveAllStates(page: Page, theme: string): Promise<void> {
   // Three versions, one per badge kind: `danger`, `warn`, `safe`. Stepping to
   // each is the only way any of the three badge inks reaches the TLS card, and
   // the dot row's active dot changes colour with it.
-  for (const version of ['TLS 1.2', 'TLS 1.3', 'TLS 1.0 / 1.1']) {
+  for (const version of ['TLS 1.1 / 1.2', 'TLS 1.3', 'TLS 1.0']) {
     await page.locator('#tls-next').click();
     await expect(page.locator('#tls-card h3')).toHaveText(version);
     await scanAt(`Exhibit 5 showing ${version}`);
