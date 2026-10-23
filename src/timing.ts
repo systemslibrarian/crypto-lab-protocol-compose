@@ -40,9 +40,10 @@ export function naiveEqual(a: Uint8Array, b: Uint8Array): CompareTrace {
 }
 
 /**
- * Safe compare: always inspects every byte, accumulating any difference with OR.
- * The comparison count is constant no matter where — or whether — the inputs
- * differ, so there is no timing signal to measure.
+ * Fixed-work model: always inspects every byte, accumulating differences with
+ * OR. Its comparison count is constant, so this deterministic model exposes no
+ * early-exit signal. Ordinary JavaScript does not promise wall-clock constant
+ * time; production code should use a reviewed platform/library primitive.
  */
 export function constantTimeEqual(a: Uint8Array, b: Uint8Array): CompareTrace {
   if (a.length !== b.length) {

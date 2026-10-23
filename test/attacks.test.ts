@@ -32,9 +32,15 @@ describe('EtM closes the oracle', () => {
 });
 
 describe('TLS timeline data', () => {
-  it('progresses danger -> warn -> safe', () => {
+  it('separates TLS 1.0 implicit-IV risk from the TLS 1.1 explicit-IV fix', () => {
     const notes = tlsEvolutionNotes();
+    expect(notes.map((n) => n.version)).toEqual(['TLS 1.0', 'TLS 1.1 / 1.2', 'TLS 1.3']);
     expect(notes.map((n) => n.safety)).toEqual(['danger', 'warn', 'safe']);
+    expect(notes[0].composition).toContain('previous record');
+    expect(notes[0].failureOrWin).toContain('BEAST');
+    expect(notes[1].composition).toContain('explicit IV');
+    expect(notes[1].lesson).toContain('Lucky Thirteen');
+    expect(notes[2].composition).toContain('AEAD-only');
     for (const note of notes) {
       expect(note.version).toBeTruthy();
       expect(note.lesson).toBeTruthy();

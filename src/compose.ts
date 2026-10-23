@@ -97,6 +97,18 @@ async function hmacSign(key: CryptoKey, data: Uint8Array): Promise<Uint8Array> {
   return new Uint8Array(sig);
 }
 
+/** Produce a real HMAC-SHA-256 tag, optionally truncated for compact demos. */
+export async function hmacTag(
+  suite: CryptoSuite,
+  data: Uint8Array,
+  length = 32,
+): Promise<Uint8Array> {
+  if (!Number.isInteger(length) || length < 1 || length > 32) {
+    throw new RangeError('HMAC-SHA-256 tag length must be an integer from 1 to 32 bytes');
+  }
+  return (await hmacSign(suite.hmacKey, data)).slice(0, length);
+}
+
 async function hmacVerify(key: CryptoKey, data: Uint8Array, tag: Uint8Array): Promise<boolean> {
   return crypto.subtle.verify('HMAC', key, toArrayBuffer(tag), toArrayBuffer(data));
 }

@@ -154,17 +154,17 @@ export async function etmRejectsTampering(suite: CryptoSuite, packet: EtMPacket)
 export function tlsEvolutionNotes(): TlsTimelinePoint[] {
   return [
     {
-      version: 'TLS 1.0 / 1.1',
-      composition: 'CBC with MAC-then-Encrypt record processing',
-      failureOrWin: 'BEAST and CBC fragility under record-level composition',
-      lesson: 'Encrypting MACed plaintext still left exploitable structure and side-channel surface.',
+      version: 'TLS 1.0',
+      composition: 'CBC MAC-then-Encrypt with the previous record\'s last ciphertext block reused as the next IV',
+      failureOrWin: 'Predictable chained IVs enabled the BEAST chosen-plaintext condition',
+      lesson: 'Encrypting MACed plaintext did not hide exploitable record-to-record structure.',
       safety: 'danger'
     },
     {
-      version: 'TLS 1.2',
-      composition: 'Still permits CBC MtE suites and therefore Lucky Thirteen class timing issues',
-      failureOrWin: 'Residual risk from decryption-before-authentication code paths',
-      lesson: 'Optional safer ciphers are not enough when dangerous composition remains negotiable.',
+      version: 'TLS 1.1 / 1.2',
+      composition: 'CBC suites use an explicit IV but retain MAC-then-Encrypt record processing',
+      failureOrWin: 'The explicit IV removes the TLS 1.0 BEAST condition; decrypt-first CBC timing risk remains',
+      lesson: 'Lucky Thirteen-class timing attacks show that fixing the IV did not fix CBC composition.',
       safety: 'warn'
     },
     {

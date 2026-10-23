@@ -3,6 +3,7 @@ import './style.css';
 import {
   type CryptoSuite,
   createSuite,
+  hmacTag,
   sealAead,
   sealEAndM,
   sealEtM,
@@ -22,7 +23,6 @@ import {
   type CompareFn,
   constantTimeEqual,
   naiveEqual,
-  randomTag,
   recoverViaTiming,
 } from './timing';
 
@@ -184,7 +184,7 @@ app.innerHTML = `
       <ol class="spectrum-list">
         <li><span class="spectrum-tag spectrum-danger">MtE</span> decrypt-first — <strong>worst</strong>: opens a padding oracle (Exhibit 2).</li>
         <li><span class="spectrum-tag spectrum-warn">E&amp;M</span> leaks message <strong>equality</strong> (Exhibit 1, the tags that snapped equal).</li>
-        <li><span class="spectrum-tag spectrum-safe">EtM</span> <strong>safe with care</strong> — but only if the tag check is constant-time (Exhibit 3).</li>
+        <li><span class="spectrum-tag spectrum-safe">EtM</span> <strong>safe with care</strong> — but only with a reviewed constant-time tag check (Exhibit 3).</li>
         <li><span class="spectrum-tag spectrum-safe">AEAD</span> <strong>safe by design</strong> — one primitive, no seam to get wrong (with one caveat below).</li>
       </ol>
       <p class="note">
@@ -288,22 +288,24 @@ app.innerHTML = `
         whole tag falls out one byte at a time. That seam is a
         <strong>non-constant-time tag comparison</strong> — a different bug from Lucky Thirteen,
         which timed the MAC <em>computation</em> during CBC padding removal to recover plaintext. The
-        attacker below never reads the tag; it only watches how long the compare runs.
+        attacker below never reads the tag; it observes how much comparison work the model reports.
       </p>
       <label for="tmg-mode">Tag comparison under attack</label>
       <select id="tmg-mode">
         <option value="naive">Naive compare — bails at the first wrong byte (vulnerable)</option>
-        <option value="ct">Constant-time compare — always scans every byte (safe)</option>
+        <option value="ct">Fixed-work compare model — always scans every byte (no modeled leak)</option>
       </select>
       <div class="crime-secret">
         <span class="repeat-label">secret tag (the attacker cannot read this directly)</span>
         <code id="tmg-secret"></code>
       </div>
-      <button id="tmg-run" type="button" aria-describedby="tmg-status">Recover the tag using only timing</button>
+      <button id="tmg-run" type="button" aria-describedby="tmg-status">Recover the tag from comparison work</button>
       <p class="note tmg-legend">
-        <strong>Bar height = elapsed time = how many bytes the compare inspected before giving up.</strong>
+        <strong>Bar height = bytes inspected, a deterministic model of elapsed time.</strong>
         For each position the wrong guesses stop at the same short height; the one correct guess makes
-        the compare run one byte further, so its bar edges taller — and that taller bar <em>is</em> the leak.
+        the compare run one byte further, so its bar edges taller — and that taller bar <em>is</em> the
+        modeled leak. This chart counts work rather than measuring noisy wall-clock time. The real
+        HMAC-SHA-256 output is shortened to eight bytes only to keep the teaching chart compact.
       </p>
       <div class="oracle-output">
         <div id="tmg-visual" class="hex" aria-hidden="true"></div>
@@ -315,25 +317,27 @@ app.innerHTML = `
         <a href="https://systemslibrarian.github.io/crypto-lab-timing-oracle/" target="_blank" rel="noreferrer">crypto-lab-timing-oracle<span class="sr-only"> (opens in new tab)</span></a>
       </p>
       <details class="explainer">
-        <summary>Why does early-exit leak — and how does constant-time close it?</summary>
+        <summary>Why does early-exit leak — and how does fixed work model the defense?</summary>
         <p class="note">
           A byte-by-byte compare that <code>return</code>s on the first mismatch runs in time
           proportional to the length of the correct prefix. Measure that time across many guesses and
           the correct next byte is the one whose comparison runs one step longer. The fix never
           branches on the secret: it ORs together every byte difference and always scans the whole
-          tag, so the running time is identical whatever you feed it.
+          tag, so the modeled work is identical whatever you feed it.
+          This JavaScript exhibit models fixed work; production code should use a platform verifier or
+          a reviewed constant-time primitive rather than infer wall-clock guarantees from this loop.
         </p>
         <pre
           class="code-block"
           role="region"
           tabindex="0"
-          aria-label="Leaking and constant-time tag comparison, side by side"
+          aria-label="Leaking and fixed-work tag comparison models, side by side"
         ><code>// leaks: stops early, time ∝ correct prefix length
 for (let i = 0; i &lt; tag.length; i++)
   if (a[i] !== tag[i]) return false;   // ← the timing tell
 return true;
 
-// safe: constant work, no secret-dependent branch
+// fixed-work model: no source-level secret-dependent branch
 let diff = 0;
 for (let i = 0; i &lt; tag.length; i++) diff |= a[i] ^ tag[i];
 return diff === 0;</code></pre>
@@ -521,13 +525,22 @@ function renderCardBody(card: HTMLElement | null, html: string): void {
   }
 }
 
-async function runExhibit1(suite: CryptoSuite, messageA: string, messageB: string): Promise<void> {
+async function runExhibit1(
+  suite: CryptoSuite,
+  messageA: string,
+  messageB: string,
+  isCurrent: () => boolean = () => true,
+): Promise<void> {
   const [mteA, mteB, etmA, etmB, eamA, eamB, aeadA, aeadB] = await Promise.all([
     sealMtE(suite, messageA), sealMtE(suite, messageB),
     sealEtM(suite, messageA), sealEtM(suite, messageB),
     sealEAndM(suite, messageA), sealEAndM(suite, messageB),
     sealAead(suite, messageA), sealAead(suite, messageB),
   ]);
+
+  // WebCrypto completes asynchronously. If either input changed while it was
+  // running, these packets describe retired inputs and must never repaint them.
+  if (!isCurrent()) return;
 
   const sameMessage = messageA === messageB;
   const equalHint = sameMessage
@@ -581,13 +594,18 @@ const ex1Run = document.querySelector<HTMLButtonElement>('#ex1-run');
 const ex1Match = document.querySelector<HTMLButtonElement>('#ex1-match');
 const ex1MessageA = document.querySelector<HTMLTextAreaElement>('#ex1-a');
 const ex1MessageB = document.querySelector<HTMLTextAreaElement>('#ex1-b');
+let ex1Revision = 0;
 if (ex1Run && ex1MessageA && ex1MessageB) {
   ex1Run.addEventListener('click', async () => {
+    const revision = ++ex1Revision;
     ex1Run.disabled = true;
     writeState();
     try {
       const suite = await suitePromise;
-      await runExhibit1(suite, ex1MessageA.value, ex1MessageB.value);
+      if (revision !== ex1Revision) return;
+      const messageA = ex1MessageA.value;
+      const messageB = ex1MessageB.value;
+      await runExhibit1(suite, messageA, messageB, () => revision === ex1Revision);
     } catch (e) {
       console.error('Exhibit 1 error:', e);
     } finally {
@@ -607,6 +625,7 @@ if (ex1Run && ex1MessageA && ex1MessageB) {
   // away" (and E&M's "identical tag" risk badge) over two textareas the reader
   // could see were different. Exhibit 3 already clears on a config change.
   const retractSeal = (): void => {
+    ex1Revision += 1;
     for (const id of ['#ex1-mte', '#ex1-etm', '#ex1-eam', '#ex1-aead']) {
       renderCardBody(document.querySelector<HTMLElement>(id), '');
     }
@@ -658,12 +677,14 @@ async function animateMechByte(
   guess: number,
   plainByte: number,
   animate: boolean,
-): Promise<void> {
+  isCurrent: () => boolean = () => true,
+): Promise<boolean> {
+  if (!isCurrent()) return false;
   const cprevCells = mechCprev?.children;
   const plainCells = mechPlain?.children;
   const cprevCell = cprevCells?.[byteIndex] as HTMLElement | undefined;
   const plainCell = plainCells?.[byteIndex] as HTMLElement | undefined;
-  if (!cprevCell || !plainCell) return;
+  if (!cprevCell || !plainCell) return false;
 
   // Clear any prior sweep highlight.
   for (const c of Array.from(cprevCells ?? [])) (c as HTMLElement).classList.remove('mech-sweeping');
@@ -675,9 +696,11 @@ async function animateMechByte(
     cprevCell.classList.add('mech-sweeping');
     // Sample the 0x00..0xFF sweep so it reads as "trying every value".
     for (let v = 0; v <= 0xff; v += 0x22) {
+      if (!isCurrent()) return false;
       cprevCell.textContent = hex(v);
       await new Promise((resolve) => setTimeout(resolve, 8));
     }
+    if (!isCurrent()) return false;
     cprevCell.classList.remove('mech-sweeping');
   }
   cprevCell.textContent = hex(guess);
@@ -685,6 +708,7 @@ async function animateMechByte(
   plainCell.textContent = glyph;
   plainCell.classList.remove('mech-pending');
   plainCell.classList.add('mech-hit');
+  return true;
 }
 
 /**
@@ -721,15 +745,20 @@ function renderRecovery(buf: (number | null)[], secretLen: number): string {
     <div class="recovery-extra">+ ${extra} bytes of HMAC tag &amp; CBC padding (also peeled off)</div>`;
 }
 
+let oracleRevision = 0;
+
 if (oracleRun && oracleMode && oracleMessage && oracleVisual && oracleStatus) {
   oracleRun.addEventListener('click', async () => {
     if (attackRunning) return;
+    const revision = ++oracleRevision;
+    const isCurrent = (): boolean => revision === oracleRevision;
     attackRunning = true;
     oracleRun.disabled = true;
     oracleStatus.className = 'status-line';
     writeState();
     try {
       const suite = await suitePromise;
+      if (!isCurrent()) return;
       const mode = oracleMode.value;
       const msg = oracleMessage.value;
 
@@ -746,12 +775,14 @@ if (oracleRun && oracleMode && oracleMessage && oracleVisual && oracleStatus) {
       if (mode === 'mte') {
         const secretLen = utf8(msg).length;
         const packet = await sealMtE(suite, msg);
+        if (!isCurrent()) return;
         const oracle = createMtEPaddingOracle(suite);
         oracleStatus.textContent = 'Running padding-oracle attack against MtE…';
         oracleVisual.innerHTML = '';
         initMechBlock();
 
         const result = await recoverMtEPlaintext(packet, oracle);
+        if (!isCurrent()) return;
         const buf: (number | null)[] = new Array(result.recovered.length).fill(null);
         let shownBlock = -1;
 
@@ -763,13 +794,14 @@ if (oracleRun && oracleMode && oracleMessage && oracleVisual && oracleStatus) {
           renderCounter(oracleCounter, result.queries, 'oracle queries');
         } else {
           for (const step of result.steps) {
+            if (!isCurrent()) return;
             // A new CBC block is now under attack: reset the single-block diagram.
             if (step.blockIndex !== shownBlock) {
               shownBlock = step.blockIndex;
               initMechBlock();
             }
             buf[step.blockIndex * 16 + step.byteIndex] = step.recoveredByte;
-            await animateMechByte(step.byteIndex, step.guess, step.recoveredByte, true);
+            if (!await animateMechByte(step.byteIndex, step.guess, step.recoveredByte, true, isCurrent)) return;
             oracleVisual.innerHTML = renderRecovery(buf, secretLen);
             renderCounter(oracleCounter, step.queriesSoFar, 'oracle queries');
           }
@@ -793,7 +825,9 @@ if (oracleRun && oracleMode && oracleMessage && oracleVisual && oracleStatus) {
       initMechBlock();
       if (oracleMech) oracleMech.classList.add('mech-idle');
       const packet = await sealEtM(suite, msg);
+      if (!isCurrent()) return;
       const blocked = await etmRejectsTampering(suite, packet);
+      if (!isCurrent()) return;
       oracleVisual.innerHTML =
         `<div class="recovery">tampered packet → <span class="recovered">rejected at the MAC</span></div>
          <div class="recovery-extra">0 bytes leaked — decryption never ran, so there is nothing to query.</div>`;
@@ -803,8 +837,10 @@ if (oracleRun && oracleMode && oracleMessage && oracleVisual && oracleStatus) {
         ? '✓ EtM safe: the MAC covers the ciphertext and is checked first. The padding oracle has no surface to attack.'
         : 'Unexpected result: EtM did not reject tampering early.';
     } catch (e) {
-      oracleStatus.className = 'status-line';
-      oracleStatus.textContent = 'Error: could not run attack. See console for details.';
+      if (isCurrent()) {
+        oracleStatus.className = 'status-line';
+        oracleStatus.textContent = 'Error: could not run attack. See console for details.';
+      }
       console.error('Oracle attack error:', e);
     } finally {
       attackRunning = false;
@@ -823,7 +859,7 @@ if (oracleRun && oracleMode && oracleMessage && oracleVisual && oracleStatus) {
  * and Exhibit 4 clears on "New secret"; this brings Exhibit 2 in line.
  */
 function resetOracleOutput(): void {
-  if (attackRunning) return;
+  oracleRevision += 1;
   if (oracleVisual) oracleVisual.textContent = 'Press “Run the attack” to begin.';
   if (oracleCounter) oracleCounter.innerHTML = '';
   if (oracleStatus) {
@@ -969,7 +1005,7 @@ if (crimeReset) {
 renderCrimeReflect('', crimeSecret.replace(/^session=/, ''), null);
 
 // ---------------------------------------------------------------------------
-// Exhibit 3 — timing side-channel: recover a tag from comparison time alone.
+// Exhibit 3 — timing side-channel: recover a tag from modeled comparison work.
 // ---------------------------------------------------------------------------
 
 const tmgRun = document.querySelector<HTMLButtonElement>('#tmg-run');
@@ -980,7 +1016,8 @@ const tmgCounter = document.querySelector<HTMLElement>('#tmg-counter');
 const tmgStatus = document.querySelector<HTMLElement>('#tmg-status');
 
 let tmgRunning = false;
-let tmgSecret = randomTag(8);
+let tmgRevision = 0;
+let tmgSecret: Uint8Array = new Uint8Array(8);
 
 function renderTmgSecret(): void {
   if (tmgSecretEl) {
@@ -1006,8 +1043,9 @@ function renderTmgProgress(
     const hex = b === null
       ? '<span class="pending">··</span>'
       : `<span class="recovered">${b.toString(16).padStart(2, '0')}</span>`;
-    // Bar height ∝ how long the compare ran — the timing tell. During the race we
-    // first draw the wrong guesses' short bar, then let the winner edge taller.
+    // Bar height ∝ comparisons performed, our deterministic proxy for the
+    // timing tell. During the race we first draw the wrong guesses' short bar,
+    // then let the winner edge taller.
     let c = comparisons[i];
     let fillClass = 'tmg-bar-fill';
     if (racing && racing.position === i) {
@@ -1035,11 +1073,20 @@ function renderTmgProgress(
 if (tmgRun && tmgMode && tmgVisual && tmgStatus) {
   tmgRun.addEventListener('click', async () => {
     if (tmgRunning) return;
+    const revision = ++tmgRevision;
+    const isCurrent = (): boolean => revision === tmgRevision;
     tmgRunning = true;
     tmgRun.disabled = true;
     tmgStatus.className = 'status-line';
     writeState();
     try {
+      const suite = await suitePromise;
+      if (!isCurrent()) return;
+      const challenge = crypto.getRandomValues(new Uint8Array(32));
+      tmgSecret = await hmacTag(suite, challenge, 8);
+      if (!isCurrent()) return;
+      renderTmgSecret();
+
       const naive = tmgMode.value !== 'ct';
       const compare: CompareFn = naive ? naiveEqual : constantTimeEqual;
       const recovered: (number | null)[] = new Array(tmgSecret.length).fill(null);
@@ -1047,10 +1094,11 @@ if (tmgRun && tmgMode && tmgVisual && tmgStatus) {
       tmgVisual.innerHTML = renderTmgProgress(recovered, comparisons);
       if (tmgCounter) tmgCounter.innerHTML = '';
       tmgStatus.textContent = naive
-        ? 'Timing the naive compare, one byte at a time…'
-        : 'Timing the constant-time compare, one byte at a time…';
+        ? 'Running the naive comparison-work oracle, one byte at a time…'
+        : 'Running the fixed-work comparison model, one byte at a time…';
 
       const result = await recoverViaTiming(tmgSecret, compare, async (step) => {
+        if (!isCurrent()) return;
         recovered[step.position] = step.byte;
         comparisons[step.position] = step.comparisons;
         if (prefersReducedMotion) {
@@ -1062,35 +1110,40 @@ if (tmgRun && tmgMode && tmgVisual && tmgStatus) {
             phase: 'losing',
           });
           await new Promise((resolve) => setTimeout(resolve, 130));
+          if (!isCurrent()) return;
           tmgVisual.innerHTML = renderTmgProgress(recovered, comparisons, {
             position: step.position,
             phase: 'winning',
           });
           await new Promise((resolve) => setTimeout(resolve, 90));
+          if (!isCurrent()) return;
         }
-        renderCounter(tmgCounter, step.queriesSoFar, 'timed guesses');
+        renderCounter(tmgCounter, step.queriesSoFar, 'modeled guesses');
       });
-      renderCounter(tmgCounter, result.queries, 'timed guesses');
+      if (!isCurrent()) return;
+      renderCounter(tmgCounter, result.queries, 'modeled guesses');
 
       if (result.success) {
         tmgStatus.className = 'status-line verdict-danger';
         tmgStatus.innerHTML =
           `✗ Naive compare broken: the whole tag recovered in <span class="stat">${result.queries.toLocaleString()}</span> ` +
-          `timed guesses — the rising bars are the leak. Early-exit turns "how long did it take" into "how many bytes are right."`;
+          `modeled guesses — the rising bars expose the early exit. Comparison work reveals how many prefix bytes are right.`;
       } else {
         // Reveal the real tag so the flat bars are unmistakably not a recovery.
         tmgStatus.className = 'status-line verdict-safe';
         tmgStatus.innerHTML =
-          '✓ Constant-time compare holds: every guess costs the same work, so the bars are flat and ' +
-          'no byte stands out. The attack recovers nothing — the real tag was ' +
+          '✓ Fixed-work model holds: every guess costs the same modeled work, so the bars are flat and ' +
+          'no byte stands out. This deterministic attack recovers nothing — the real HMAC tag was ' +
           `<code>${toHex(tmgSecret)}</code>.`;
         const revealed = Array.from(tmgSecret, (b) => b as number | null);
         const flat = new Array(tmgSecret.length).fill(tmgSecret.length) as (number | null)[];
         tmgVisual.innerHTML = renderTmgProgress(revealed, flat);
       }
     } catch (e) {
-      tmgStatus.className = 'status-line';
-      tmgStatus.textContent = 'Error: could not run the timing demo. See console for details.';
+      if (isCurrent()) {
+        tmgStatus.className = 'status-line';
+        tmgStatus.textContent = 'Error: could not run the timing demo. See console for details.';
+      }
       console.error('Timing demo error:', e);
     } finally {
       tmgRunning = false;
@@ -1101,8 +1154,9 @@ if (tmgRun && tmgMode && tmgVisual && tmgStatus) {
 
 if (tmgMode) {
   tmgMode.addEventListener('change', () => {
-    // Fresh tag per run so repeated attacks are not just replaying one recovery.
-    tmgSecret = randomTag(8);
+    // Retire an in-flight result. The next run derives a fresh truncated HMAC
+    // tag from a new random challenge rather than replaying this recovery.
+    tmgRevision += 1;
     renderTmgSecret();
     if (tmgVisual) tmgVisual.innerHTML = '';
     if (tmgCounter) tmgCounter.innerHTML = '';
