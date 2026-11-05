@@ -19,6 +19,7 @@ import {
   tlsEvolutionNotes,
 } from './attacks';
 import { CRIME_ALPHABET, crimeRecover, randomSecret } from './crime';
+import { escapeHtml } from './escape';
 import {
   type CompareFn,
   constantTimeEqual,
@@ -32,12 +33,6 @@ const prefersReducedMotion =
   typeof window.matchMedia === 'function' &&
   window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-function escapeHtml(input: string): string {
-  return input
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}
 
 /** Show a printable rendering of a byte: ASCII char, or a dot for control/non-ASCII. */
 function printableChar(byte: number): string {

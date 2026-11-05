@@ -77,12 +77,43 @@ export async function crimeRecover(
   return { recovered, steps, queries };
 }
 
-/** Generate a random secret drawn from the recovery alphabet. */
-export function randomSecret(length = 8, alphabet: string = CRIME_ALPHABET): string {
-  const values = crypto.getRandomValues(new Uint8Array(length));
+/** Fill `buffer` with random bytes. Injectable so the rejection bound is testable. */
+export type ByteSource = (buffer: Uint8Array<ArrayBuffer>) => void;
+
+const cryptoSource: ByteSource = (buffer) => {
+  crypto.getRandomValues(buffer);
+};
+
+/**
+ * The largest multiple of `alphabetSize` that fits in one byte.
+ *
+ * `byte % alphabetSize` is only uniform when every residue has the same number
+ * of byte values behind it, and 256 is not a multiple of 36: `256 % 36 === 4`,
+ * so four of the alphabet's symbols would get eight byte values each and the
+ * other thirty-two only seven — about 14% more likely. Drawing again on a byte
+ * at or above this bound removes that skew exactly.
+ */
+export function rejectionLimit(alphabetSize: number): number {
+  return 256 - (256 % alphabetSize);
+}
+
+/** Generate a random secret drawn from the recovery alphabet, without modulo bias. */
+export function randomSecret(
+  length = 8,
+  alphabet: string = CRIME_ALPHABET,
+  source: ByteSource = cryptoSource,
+): string {
+  if (alphabet.length === 0 || alphabet.length > 256) {
+    throw new RangeError('randomSecret needs an alphabet of 1 to 256 symbols');
+  }
+  const limit = rejectionLimit(alphabet.length);
+  const buffer = new Uint8Array(1) as Uint8Array<ArrayBuffer>;
   let out = '';
-  for (let i = 0; i < length; i += 1) {
-    out += alphabet[values[i] % alphabet.length];
+  while (out.length < length) {
+    source(buffer);
+    // The tail above `limit` is what would make the first residues likelier.
+    if (buffer[0] >= limit) continue;
+    out += alphabet[buffer[0] % alphabet.length];
   }
   return out;
 }
