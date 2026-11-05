@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   createSuite,
+  hmacTag,
   openAead,
   openEAndM,
   openEtM,
@@ -73,5 +74,21 @@ describe('tamper detection', () => {
     const a = await sealEtM(suite, MESSAGE);
     const b = await sealEtM(suite, MESSAGE);
     expect([...a.tag]).not.toEqual([...b.tag]);
+  });
+});
+
+describe('timing-demo tag fixture', () => {
+  it('uses a real deterministic HMAC-SHA-256 output with explicit truncation', async () => {
+    const suite = await createSuite();
+    const message = new TextEncoder().encode('comparison-work challenge');
+    const first = await hmacTag(suite, message, 8);
+    const second = await hmacTag(suite, message, 8);
+    const full = new Uint8Array(await crypto.subtle.sign('HMAC', suite.hmacKey, message));
+
+    expect(first).toHaveLength(8);
+    expect([...first]).toEqual([...second]);
+    expect([...first]).toEqual([...full.slice(0, 8)]);
+    await expect(hmacTag(suite, message, 0)).rejects.toThrow(RangeError);
+    await expect(hmacTag(suite, message, 33)).rejects.toThrow(RangeError);
   });
 });
